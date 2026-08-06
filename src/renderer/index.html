@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'">
+    <title>Codex Avatars</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="dock" aria-live="polite">
+      <header class="toolbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+          <span>Codex Avatars</span>
+          <span id="version" class="version"></span>
+        </div>
+        <div class="toolbar-actions no-drag">
+          <span id="connection-pill" class="pill pill-offline"></span>
+          <button id="demo-button" class="icon-button" type="button"></button>
+          <button id="settings-button" class="icon-button" type="button" aria-expanded="false" aria-controls="settings-panel">⚙</button>
+          <button id="quit-button" class="icon-button danger" type="button" aria-label="Quit">×</button>
+        </div>
+      </header>
+
+      <section id="world" class="world"></section>
+
+      <section id="empty-state" class="empty-state">
+        <div class="sleeping-avatar" aria-hidden="true">
+          <span class="sleep-z z-one">z</span>
+          <span class="sleep-z z-two">z</span>
+          <span class="sleep-body"><i></i><i></i></span>
+        </div>
+        <div>
+          <strong id="empty-title"></strong>
+          <span id="empty-copy"></span>
+        </div>
+        <button id="empty-install" class="primary-button no-drag" type="button"></button>
+      </section>
+
+      <aside id="settings-panel" class="settings-panel no-drag" hidden>
+        <div class="settings-heading">
+          <strong id="settings-title"></strong>
+          <button id="settings-close" class="icon-button" type="button" aria-label="Close">×</button>
+        </div>
+        <div class="setting-row">
+          <div>
+            <strong id="integration-title"></strong>
+            <span id="integration-copy"></span>
+          </div>
+          <button id="integration-button" class="secondary-button" type="button"></button>
+        </div>
+        <label class="setting-row toggle-row">
+          <span>
+            <strong id="passive-title"></strong>
+            <small id="passive-copy"></small>
+          </span>
+          <input id="passive-toggle" type="checkbox">
+        </label>
+        <label class="setting-row toggle-row">
+          <span>
+            <strong id="startup-title"></strong>
+            <small id="startup-copy"></small>
+          </span>
+          <input id="startup-toggle" type="checkbox">
+        </label>
+        <p id="settings-message" class="settings-message" role="status"></p>
+      </aside>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
