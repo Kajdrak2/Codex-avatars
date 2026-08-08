@@ -5,7 +5,7 @@ const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 
 const DEFAULT_SETTINGS = Object.freeze({
-  schemaVersion: 7,
+  schemaVersion: 8,
   language: 'en',
   overlayEnabled: true,
   passive: true,
@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   knownAvatarIds: [],
   avatarKnowledgeInitialized: false,
   autoEnableNewAvatars: true,
+  avatarAssignmentMode: 'master',
   mainAvatarSize: 118,
   subagentAvatarSize: 118,
   showLabels: true,
@@ -80,6 +81,7 @@ function normalizeSettings(value) {
     autoEnableNewAvatars: source.autoEnableNewAvatars === undefined
       ? DEFAULT_SETTINGS.autoEnableNewAvatars
       : Boolean(source.autoEnableNewAvatars),
+    avatarAssignmentMode: source.avatarAssignmentMode === 'random' ? 'random' : 'master',
     mainAvatarSize: clampInteger(source.mainAvatarSize, 72, 180, legacyAvatarSize),
     subagentAvatarSize: clampInteger(source.subagentAvatarSize, 72, 180, legacyAvatarSize),
     showLabels: source.showLabels === undefined ? DEFAULT_SETTINGS.showLabels : Boolean(source.showLabels),

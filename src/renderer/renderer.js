@@ -18,6 +18,7 @@ const translations = {
     mainAvatarSize: 'Main agent size', subagentAvatarSize: 'Subagent size', labels: 'Show names', agentDetails: 'Show model + effort', dormantAgents: 'Show dormant agents', autoEnable: 'Automatically enable new Pets',
     dormantAgentsHelp: 'Keep recently idle or completed agents visible in a sleeping state for up to 30 minutes.',
     autoEnableHelp: 'A newly created or imported Pet joins the active rotation. Existing choices are never changed.',
+    avatarAssignment: 'Avatar assignment', avatarAssignmentMaster: 'Match each main agent', avatarAssignmentRandom: 'Randomly distribute all Pets',
     reduceMotion: 'Reduce movement', codexPet: 'Local Pet', bundled: 'Bundled', enabled: 'Enabled', disabled: 'Disabled', share: 'Share',
     creatorEyebrow: 'Character studio', creatorTitle: 'Create a custom avatar',
     creatorCopy: 'Describe the character here. Codex opens a new task with a complete hatch-pet brief already filled in.',
@@ -73,6 +74,7 @@ const translations = {
     mainAvatarSize: 'Taille des agents principaux', subagentAvatarSize: 'Taille des sous-agents', labels: 'Afficher les noms', agentDetails: 'Afficher modèle + effort', dormantAgents: 'Afficher les agents dormants', autoEnable: 'Activer automatiquement les nouveaux Pets',
     dormantAgentsHelp: 'Conserve les agents récemment au repos ou terminés dans un état endormi pendant 30 minutes maximum.',
     autoEnableHelp: 'Un Pet nouvellement créé ou importé rejoint la rotation active. Les choix existants ne sont jamais modifiés.',
+    avatarAssignment: 'Attribution des avatars', avatarAssignmentMaster: 'Même Pet que l’agent principal', avatarAssignmentRandom: 'Répartir aléatoirement tous les Pets',
     reduceMotion: 'Réduire les mouvements', codexPet: 'Pet local', bundled: 'Inclus', enabled: 'Activé', disabled: 'Désactivé', share: 'Partager',
     creatorEyebrow: 'Studio de personnage', creatorTitle: 'Créer un avatar personnalisé',
     creatorCopy: 'Décrivez le personnage ici. Codex ouvre une nouvelle tâche avec un brief hatch-pet complet déjà rempli.',
@@ -121,7 +123,7 @@ const elements = {
   passive: document.querySelector('#passive-toggle'), startup: document.querySelector('#startup-toggle'), avatarGrid: document.querySelector('#avatar-grid'),
   avatarEmpty: document.querySelector('#avatar-empty'), mainAvatarSize: document.querySelector('#main-avatar-size'), mainAvatarSizeValue: document.querySelector('#main-avatar-size-value'),
   subagentAvatarSize: document.querySelector('#subagent-avatar-size'), subagentAvatarSizeValue: document.querySelector('#subagent-avatar-size-value'),
-  labels: document.querySelector('#labels-toggle'), agentDetails: document.querySelector('#agent-details-toggle'), dormantAgents: document.querySelector('#dormant-agents-toggle'), autoEnable: document.querySelector('#new-avatars-toggle'),
+  labels: document.querySelector('#labels-toggle'), agentDetails: document.querySelector('#agent-details-toggle'), dormantAgents: document.querySelector('#dormant-agents-toggle'), autoEnable: document.querySelector('#new-avatars-toggle'), avatarAssignment: document.querySelector('#avatar-assignment-select'),
   reduceMotion: document.querySelector('#motion-toggle'), displayList: document.querySelector('#display-list'), customActions: document.querySelector('#custom-zone-actions'),
   customSummary: document.querySelector('#custom-zone-summary'), hooksButton: document.querySelector('#legacy-hooks-button'), openPluginButton: document.querySelector('#open-plugin-button'),
   demoButton: document.querySelector('#demo-button'), briefForm: document.querySelector('#avatar-brief-form'), toast: document.querySelector('#toast'),
@@ -151,7 +153,7 @@ function localize() {
     '#startup-title': copy.startupTitle, '#startup-copy': copy.startupCopy, '#avatars-eyebrow': copy.avatarsEyebrow, '#avatars-title': copy.avatarsTitle,
     '#avatars-copy': copy.avatarsCopy, '#refresh-avatars': copy.refresh, '#avatar-empty-title': copy.emptyTitle, '#avatar-empty-copy': copy.emptyCopy,
     '#main-avatar-size-title': copy.mainAvatarSize, '#subagent-avatar-size-title': copy.subagentAvatarSize, '#labels-title': copy.labels, '#agent-details-title': copy.agentDetails,
-    '#dormant-agents-title': copy.dormantAgents, '#dormant-agents-help': copy.dormantAgentsHelp, '#new-avatars-title': copy.autoEnable,
+    '#dormant-agents-title': copy.dormantAgents, '#dormant-agents-help': copy.dormantAgentsHelp, '#new-avatars-title': copy.autoEnable, '#avatar-assignment-title': copy.avatarAssignment,
     '#new-avatars-help': copy.autoEnableHelp, '#motion-title': copy.reduceMotion, '#creator-eyebrow': copy.creatorEyebrow, '#creator-title': copy.creatorTitle,
     '#creator-copy': copy.creatorCopy, '#brief-name-label': copy.briefName, '#brief-style-label': copy.briefStyle, '#brief-appearance-label': copy.briefAppearance,
     '#brief-appearance-help': copy.briefAppearanceHelp, '#brief-personality-label': copy.briefPersonality, '#brief-palette-label': copy.briefPalette,
@@ -169,6 +171,8 @@ function localize() {
     '#onboarding-zone-copy': copy.onboardingZoneCopy, '#onboarding-zone-feature': copy.onboardingZoneFeature,
   };
   for (const [selector, value] of Object.entries(mapping)) setText(selector, value);
+  setText('#avatar-assignment-master', copy.avatarAssignmentMaster);
+  setText('#avatar-assignment-random', copy.avatarAssignmentRandom);
   elements.briefForm.elements.appearance.placeholder = copy.appearancePlaceholder;
   elements.briefForm.elements.personality.placeholder = copy.personalityPlaceholder;
   elements.briefForm.elements.palette.placeholder = copy.palettePlaceholder;
@@ -307,6 +311,7 @@ function renderSettings() {
   elements.agentDetails.checked = settings.showAgentDetails;
   elements.dormantAgents.checked = settings.showDormantAgents;
   elements.autoEnable.checked = settings.autoEnableNewAvatars;
+  elements.avatarAssignment.value = settings.avatarAssignmentMode;
   elements.reduceMotion.checked = settings.reducedMotion;
   const radio = document.querySelector(`input[name="zone-mode"][value="${settings.zone.mode}"]`);
   if (radio) radio.checked = true;
@@ -389,6 +394,7 @@ elements.labels.addEventListener('change', () => void save({ showLabels: element
 elements.agentDetails.addEventListener('change', () => void save({ showAgentDetails: elements.agentDetails.checked }));
 elements.dormantAgents.addEventListener('change', () => void save({ showDormantAgents: elements.dormantAgents.checked }));
 elements.autoEnable.addEventListener('change', () => void save({ autoEnableNewAvatars: elements.autoEnable.checked }));
+elements.avatarAssignment.addEventListener('change', () => void save({ avatarAssignmentMode: elements.avatarAssignment.value }));
 elements.reduceMotion.addEventListener('change', () => void save({ reducedMotion: elements.reduceMotion.checked }));
 
 for (const radio of document.querySelectorAll('input[name="zone-mode"]')) {

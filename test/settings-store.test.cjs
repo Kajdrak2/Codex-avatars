@@ -15,11 +15,12 @@ test('normalizes unsafe or out-of-range settings', () => {
   });
   assert.equal(settings.mainAvatarSize, 180);
   assert.equal(settings.subagentAvatarSize, 180);
-  assert.equal(settings.schemaVersion, 7);
+  assert.equal(settings.schemaVersion, 8);
   assert.equal(settings.language, 'en');
   assert.equal(settings.overlayEnabled, true);
   assert.equal(settings.showAgentDetails, true);
   assert.equal(settings.showDormantAgents, false);
+  assert.equal(settings.avatarAssignmentMode, 'master');
   assert.equal(settings.onboardingCompleted, false);
   assert.equal(settings.pluginOnboardingShown, false);
   assert.deepEqual(settings.enabledAvatarIds, ['minuit']);
@@ -29,6 +30,11 @@ test('normalizes unsafe or out-of-range settings', () => {
 test('defaults to English and accepts only the supported French alternative', () => {
   assert.equal(normalizeSettings({ language: 'de' }).language, 'en');
   assert.equal(normalizeSettings({ language: 'fr' }).language, 'fr');
+});
+
+test('defaults to matching the main agent and permits random Pet distribution', () => {
+  assert.equal(normalizeSettings({ avatarAssignmentMode: 'anything' }).avatarAssignmentMode, 'master');
+  assert.equal(normalizeSettings({ avatarAssignmentMode: 'random' }).avatarAssignmentMode, 'random');
 });
 
 test('persists a deep zone patch atomically', async () => {

@@ -372,12 +372,28 @@ h2 {
 }
 
 .range-setting,
+.select-setting,
 .compact-toggle {
   display: flex;
   align-items: center;
   gap: 9px;
   color: #b7bac4;
   font-size: 12px;
+}
+
+.select-setting {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.select-setting select {
+  min-width: 170px;
+  height: 32px;
+  padding: 0 28px 0 9px;
+  border: 1px solid rgba(106, 231, 190, 0.26);
+  border-radius: 8px;
+  background: #121b1d;
+  color: #edf2f0;
 }
 
 .range-setting input {

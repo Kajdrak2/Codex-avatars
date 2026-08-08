@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.9] - 2026-08-08
+
+### Fixed
+
+- Pets now match their main agent by default, including its subagents. A new setting switches to a stable shuffled rotation, where every active Pet is used once before an assignment repeats.
+
 ## [0.4.7] - 2026-08-08
 
 ### Changed

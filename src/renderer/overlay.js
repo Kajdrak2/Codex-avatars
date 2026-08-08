@@ -4,6 +4,7 @@ const api = window.codexAvatars;
 const world = document.querySelector('#world');
 const topology = window.CodexAvatarTopology;
 const labelLayout = window.CodexAvatarLabelLayout.labelLayout;
+const assignAvatars = window.CodexAvatarAssignment.assignAvatars;
 const actors = new Map();
 const animations = {
   idle: { row: 0, durations: [280, 110, 110, 140, 140, 320] },
@@ -197,6 +198,7 @@ function activeAvatarRecords() {
 function flattenAgents() {
   const agents = (snapshot.sessions || []).flatMap((session) => session.agents.map((agent) => ({
     ...agent,
+    sessionId: session.id,
     project: session.project,
     sessionStatus: session.status,
   })));
@@ -271,6 +273,7 @@ function updateActorElement(actor) {
 function reconcileActors() {
   const selectedAvatars = activeAvatarRecords();
   const agents = selectedAvatars.length > 0 ? flattenAgents() : [];
+  const avatarAssignments = assignAvatars(agents, selectedAvatars, settings?.avatarAssignmentMode);
   const activeIds = new Set(agents.map((agent) => agent.id));
 
   for (const [id, actor] of actors) {
@@ -281,7 +284,7 @@ function reconcileActors() {
   }
 
   agents.forEach((agent, index) => {
-    const avatar = selectedAvatars[(hash(agent.id) + index) % selectedAvatars.length];
+    const avatar = avatarAssignments.get(agent.id);
     let actor = actors.get(agent.id);
     if (!actor) {
       actor = createActor(agent, avatar, index);
