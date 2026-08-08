@@ -9,13 +9,14 @@ Create the avatar by explicitly invoking the installed `$hatch-pet` workflow and
 
 ## Workflow
 
-1. Invoke `$hatch-pet`, read its skill completely, and follow it without weakening its image-generation, direction, transparency, validation, or visual-QA gates.
-2. Before running any Python script, call `load_workspace_dependencies`. Use the exact bundled Python executable it returns, verify `from PIL import Image`, and never fall back to bare `python`, the Microsoft Store alias, or an unrelated system interpreter.
-3. Use the character description and references from the user. Ask only for a missing choice that would materially change the character; otherwise make mascot-safe visual decisions and proceed.
-4. Produce a v2 package containing `pet.json` and `spritesheet.webp` together under `${CODEX_HOME}/pets/<pet-id>` or `~/.codex/pets/<pet-id>` when `CODEX_HOME` is unset.
-5. Require `spriteVersionNumber: 2` and a validated `1536x2288` atlas with `192x208` cells. Use the validator supplied by `$hatch-pet` through the bundled runtime from step 2.
-6. Leave the package in the local Pets directory. Do not copy personal avatars into the Codex Avatars Git repository.
-7. Report the pet id, package path, validation result, and whether the user needs to enable it in Codex Avatars settings. New avatars are enabled automatically when that preference is active; the renderer refreshes the library within a few seconds.
+1. Start the task with `/goal` before invoking `$hatch-pet`. Its durable objective must require a fully validated and installed Pet v2, explicitly name the final `pet.json` plus `spritesheet.webp` installation, and say that any failed visual or blind-direction QA requires repair and continuation rather than task completion.
+2. Invoke `$hatch-pet`, read its skill completely, and follow it without weakening its image-generation, direction, transparency, validation, or visual-QA gates.
+3. Before running any Python script, call `load_workspace_dependencies`. Use the exact bundled Python executable it returns, verify `from PIL import Image`, and never fall back to bare `python`, the Microsoft Store alias, or an unrelated system interpreter.
+4. Use the character description and references from the user. Ask only for a missing choice that would materially change the character; otherwise make mascot-safe visual decisions and proceed.
+5. Produce a v2 package containing `pet.json` and `spritesheet.webp` together under `${CODEX_HOME}/pets/<pet-id>` or `~/.codex/pets/<pet-id>` when `CODEX_HOME` is unset.
+6. Require `spriteVersionNumber: 2` and a validated `1536x2288` atlas with `192x208` cells. Use the validator supplied by `$hatch-pet` through the bundled runtime from step 3.
+7. Leave the package in the local Pets directory. Do not copy personal avatars into the Codex Avatars Git repository.
+8. Report the pet id, package path, validation result, and whether the user needs to enable it in Codex Avatars settings. New avatars are enabled automatically when that preference is active; the renderer refreshes the library within a few seconds.
 
 Do not end a creation task merely because the atlas has assembled or passed structural validation. The task is incomplete until Hatch Pet's independent visual QA, three blind direction reviews, and final installation have all completed. When those gates pass, copy the final `pet.json` and `spritesheet.webp` together into the local Pets directory in the same turn. Only stop early for a genuine runtime or generation failure; then report the exact resume point without claiming that an avatar was created.
 

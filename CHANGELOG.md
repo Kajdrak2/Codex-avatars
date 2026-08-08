@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-08
+
+### Changed
+
+- Avatar creation tasks now begin with `/goal`, keeping Hatch Pet repairs active until the fully reviewed Pet v2 package is installed.
+
 ## [0.5.2] - 2026-08-08
 
 ### Fixed

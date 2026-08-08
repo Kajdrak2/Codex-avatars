@@ -16,7 +16,7 @@ test('repo marketplace and plugin identifiers match', () => {
   assert.equal(entry.source.path, './plugins/codex-avatars');
   const packageManifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json')));
   assert.equal(manifest.version.split('+')[0], packageManifest.version);
-  assert.match(manifest.version, /^0\.5\.2\+codex\.[a-z0-9-]+$/);
+  assert.match(manifest.version, /^0\.6\.0\+codex\.[a-z0-9-]+$/);
 });
 
 test('plugin bundles every lifecycle hook and the privacy-minimized bridge', () => {
@@ -39,4 +39,10 @@ test('plugin bundles every lifecycle hook and the privacy-minimized bridge', () 
   const pluginBridge = fs.readFileSync(path.join(pluginRoot, 'scripts', 'codex-hook.ps1'), 'utf8');
   const sourceBridge = fs.readFileSync(path.join(root, 'scripts', 'codex-hook.ps1'), 'utf8');
   assert.equal(pluginBridge, sourceBridge);
+});
+
+test('avatar creation skill starts a durable goal before Hatch Pet', () => {
+  const skill = fs.readFileSync(path.join(pluginRoot, 'skills', 'create-codex-avatar', 'SKILL.md'), 'utf8');
+  assert.match(skill, /Start the task with `\/goal` before invoking `\$hatch-pet`/);
+  assert.match(skill, /failed visual or blind-direction QA requires repair and continuation/);
 });

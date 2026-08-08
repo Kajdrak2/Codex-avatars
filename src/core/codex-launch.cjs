@@ -41,8 +41,14 @@ function buildAvatarPrompt(value, language = 'en') {
     ? "Avant de generer, choisis une couleur chroma precise et interdis exactement cette couleur dans le personnage. Pour une palette arc-en-ciel, ne suppose pas que le magenta ou le cyan sont absents : reserve explicitement la couleur chroma dans les prompts et dans la palette a eviter."
     : 'Before generating, choose one exact chroma-key color and explicitly exclude it from the character. For a rainbow palette, do not assume magenta or cyan is absent: reserve the chroma color in the prompts and the palette to avoid.';
 
+  const goal = french
+    ? "/goal Cree et installe cet avatar Codex Pet v2 complet. Commence par invoquer directement $hatch-pet. Poursuis les reparations jusqu'a ce que les 9 lignes d'animation, les 16 directions, les trois revues aveugles, la QA visuelle finale et l'installation de pet.json avec spritesheet.webp soient terminees. N'accepte jamais un atlas assemble ou valide structurellement comme condition de fin. Ne t'arrete que si le runtime impose est indisponible ou si une information utilisateur indispensable manque."
+    : '/goal Create and install this complete Codex Pet v2 avatar. Start by invoking $hatch-pet directly. Continue repairs until all 9 animation rows, 16 look directions, three blind reviews, final visual QA, and installation of pet.json with spritesheet.webp are complete. Never accept an assembled or structurally valid atlas as the stopping condition. Stop only if the required runtime is unavailable or genuinely essential user information is missing.';
+
   if (french) {
     return [
+      goal,
+      '',
       'Utilise directement $hatch-pet pour créer puis installer un avatar animé Codex Pet v2 soigné dans ma bibliothèque locale Codex Avatars. N’invoque pas de skill wrapper avant Hatch Pet.',
       '',
       'Brief du personnage :',
@@ -57,6 +63,8 @@ function buildAvatarPrompt(value, language = 'en') {
   }
 
   return [
+    goal,
+    '',
     'Use $hatch-pet directly to create and install a polished animated Codex Pet v2 avatar in my local Codex Avatars library. Do not invoke a wrapper skill before Hatch Pet.',
     '',
     'Character brief:',
