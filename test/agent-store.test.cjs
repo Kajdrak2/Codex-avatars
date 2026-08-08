@@ -67,6 +67,9 @@ test('an idle root never expires while a subagent is still active', () => {
 
 test('evicts the oldest dormant sessions when the cap is exceeded', () => {
   const store = new AgentStore({ dormantRetentionMs: 10_000, maxDormantAgents: 2 });
+  store.apply({ kind: 'session.started', sessionId: 'oldest', timestamp: 1 });
+  store.apply({ kind: 'session.started', sessionId: 'middle', timestamp: 2 });
+  store.apply({ kind: 'session.started', sessionId: 'newest', timestamp: 3 });
   store.apply({ kind: 'session.idle', sessionId: 'oldest', timestamp: 10 });
   store.apply({ kind: 'session.idle', sessionId: 'middle', timestamp: 20 });
   store.apply({ kind: 'session.idle', sessionId: 'newest', timestamp: 30 });
