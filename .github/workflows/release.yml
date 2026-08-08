@@ -23,6 +23,16 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run dist
+      - name: Normalize installer filename for the update checker
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          $installer = Get-ChildItem -LiteralPath dist -Filter '*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'Windows installer was not produced.' }
+          $expectedName = "Codex Avatars-Setup-$version.exe"
+          if ($installer.Name -ne $expectedName) {
+            Move-Item -LiteralPath $installer.FullName -Destination (Join-Path $installer.DirectoryName $expectedName)
+          }
       - name: Package Git and plugin bundle
         shell: pwsh
         run: |

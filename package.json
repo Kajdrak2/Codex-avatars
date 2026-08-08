@@ -1,6 +1,6 @@
 {
   "name": "codex-avatars",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Independent Codex Pet avatars roaming invisibly across one or more Windows displays.",
   "main": "src/main.cjs",
   "type": "commonjs",

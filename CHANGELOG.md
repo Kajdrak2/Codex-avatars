@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-08-08
+
+### Fixed
+
+- Release assets now keep the exact Windows installer filename used by the in-app update checker.
+
 ## [0.6.1] - 2026-08-08
 
 ### Fixed
