@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-08-08
+
+### Changed
+
+- Avatar creation now invokes `$hatch-pet` directly and reserves an explicit chroma-key color before image generation, preventing rainbow palettes from colliding with the background key.
+
 ## [0.4.6] - 2026-08-08
 
 ### Fixed

@@ -35,16 +35,20 @@ function buildAvatarPrompt(value, language = 'en') {
     .join('\n');
 
   const completionRequirement = french
-    ? "Ne t'arrete pas apres l'assemblage ou la validation structurelle. Termine les trois revues de directions a l'aveugle et le controle visuel final, puis installe ensemble pet.json et spritesheet.webp sous %USERPROFILE%\\.codex\\pets\\<pet-id> avant de declarer la reussite."
-    : 'Do not stop after atlas assembly or structural validation. Complete the three blind direction reviews and final visual QA, then install pet.json and spritesheet.webp together under %USERPROFILE%\\.codex\\pets\\<pet-id> before reporting success.';
+    ? "Ne t'arrete pas apres l'assemblage ou la validation structurelle. Termine les trois revues de directions a l'aveugle et le controle visuel final, puis installe ensemble pet.json et spritesheet.webp sous `%USERPROFILE%/.codex/pets/<pet-id>` avant de declarer la reussite."
+    : 'Do not stop after atlas assembly or structural validation. Complete the three blind direction reviews and final visual QA, then install pet.json and spritesheet.webp together under `%USERPROFILE%/.codex/pets/<pet-id>` before reporting success.';
+  const chromaRequirement = french
+    ? "Avant de generer, choisis une couleur chroma precise et interdis exactement cette couleur dans le personnage. Pour une palette arc-en-ciel, ne suppose pas que le magenta ou le cyan sont absents : reserve explicitement la couleur chroma dans les prompts et dans la palette a eviter."
+    : 'Before generating, choose one exact chroma-key color and explicitly exclude it from the character. For a rainbow palette, do not assume magenta or cyan is absent: reserve the chroma color in the prompts and the palette to avoid.';
 
   if (french) {
     return [
-      'Utilise $create-codex-avatar et invoque explicitement $hatch-pet pour créer puis installer un avatar animé Codex Pet v2 soigné dans ma bibliothèque locale Codex Avatars.',
+      'Utilise directement $hatch-pet pour créer puis installer un avatar animé Codex Pet v2 soigné dans ma bibliothèque locale Codex Avatars. N’invoque pas de skill wrapper avant Hatch Pet.',
       '',
       'Brief du personnage :',
       details,
       completionRequirement,
+      chromaRequirement,
       '',
       'Avant tout script Python ou validateur, appelle load_workspace_dependencies, utilise le chemin Python exact qu’il retourne et vérifie que Pillow peut être importé. N’utilise jamais la commande Python système comme solution de repli.',
       '',
@@ -53,11 +57,12 @@ function buildAvatarPrompt(value, language = 'en') {
   }
 
   return [
-    'Use $create-codex-avatar and explicitly invoke $hatch-pet to create and install a polished animated Codex Pet v2 avatar in my local Codex Avatars library.',
+    'Use $hatch-pet directly to create and install a polished animated Codex Pet v2 avatar in my local Codex Avatars library. Do not invoke a wrapper skill before Hatch Pet.',
     '',
     'Character brief:',
     details,
     completionRequirement,
+    chromaRequirement,
     '',
     'Before running any Python script or validator, call load_workspace_dependencies, use the exact Python path it returns, and verify that Pillow imports successfully. Never fall back to the system Python command.',
     '',
