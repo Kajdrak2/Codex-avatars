@@ -2,7 +2,7 @@
 
 Codex Avatars gives the main task and every Codex subagent an independent animated companion. Characters use the native Codex Pet v2 format and roam directly across one or more displays, with no dock, colored panel, or visible overlay background.
 
-> Project status: version `0.4.1` provides a self-contained Windows installer, a Git-ready plugin marketplace, portable Pet sharing, and bounded dormant-agent display. This checkout does not yet have a configured remote or a published signed binary.
+> Project status: version `0.4.2` provides a self-contained Windows installer, a Git-ready plugin marketplace, portable Pet sharing, bounded dormant-agent display, and immediate task-title refresh. This checkout does not yet have a configured remote or a published signed binary.
 
 [Lire en français](README.fr.md)
 
@@ -32,7 +32,7 @@ A small local Electron process therefore draws the desktop sprites. The installe
 
 ## Simple installation — recommended
 
-1. Download `Codex Avatars-Setup-0.4.1.exe` from the GitHub release.
+1. Download `Codex Avatars-Setup-0.4.2.exe` from the GitHub release.
 2. Run the installer and finish the wizard.
 3. On the Codex plugin page that opens, install **Codex Avatars** and review its hooks.
 
@@ -80,7 +80,7 @@ The skill delegates to the official `hatch-pet` workflow, validates a `1536x2288
 
 The hook allowlists only lifecycle name, session/turn/agent ids, agent type, optional agent name/model/effort, and the final project-folder name. The full working-directory path never crosses the bridge. Prompts, tool arguments, command output, transcripts, messages, source contents, and secrets are excluded.
 
-Codex hooks do not currently expose task titles, collaboration task names, models, or effort. To label an avatar accurately, the companion reads the root title from Codex's local `session_index.jsonl`, then correlates each hook `agent_id` with the matching local rollout and extracts only `agent_path`, `model`, and `effort`; it does not copy conversation content into its state or settings.
+Codex hooks do not currently expose task titles, collaboration task names, models, or effort. To label an avatar accurately, the companion reads the root title from Codex's local `session_index.jsonl` and monitors that index for renames, then correlates each hook `agent_id` with the matching local rollout and extracts only `agent_path`, `model`, and `effort`; it does not copy conversation content into its state or settings.
 
 Events use the local `codex-avatars-v1` named pipe. There is no TCP listener or remote service.
 

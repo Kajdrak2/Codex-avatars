@@ -18,7 +18,7 @@ const {
   Tray,
 } = require('electron');
 const { AgentStore } = require('./core/agent-store.cjs');
-const { AgentMetadataResolver } = require('./core/agent-metadata.cjs');
+const { AgentMetadataResolver, ThreadTitleMonitor } = require('./core/agent-metadata.cjs');
 const { discoverAvatars, readWebpDimensions } = require('./core/avatar-library.cjs');
 const { reconcileAvatarSelection } = require('./core/avatar-selection.cjs');
 const { buildAvatarPrompt, codexNewThreadUrl } = require('./core/codex-launch.cjs');
@@ -87,6 +87,7 @@ let assetPaths = new Map();
 let overlayHitTest = false;
 let isQuitting = false;
 let metadataResolver = null;
+let threadTitleMonitor = null;
 const pendingMetadata = new Set();
 const resolvedMetadata = new Set();
 let demoSessionId = null;
@@ -238,7 +239,9 @@ function enrichMetadata(event) {
       sessionId: event.sessionId,
       agentId: target.id,
       isRoot: target.isRoot,
-      agentLabel: metadata.label,
+      // Root labels are owned exclusively by ThreadTitleMonitor so a slower
+      // enrichment read can never overwrite a newer task rename.
+      agentLabel: target.isRoot ? null : metadata.label,
       agentNickname: metadata.nickname,
       model: metadata.model,
       effort: metadata.effort,
@@ -251,6 +254,30 @@ function enrichMetadata(event) {
   }).finally(() => pendingMetadata.delete(key));
 }
 
+function activeThreadIds() {
+  return store.snapshot().sessions.map((session) => session.id);
+}
+
+function applyThreadTitles(titles) {
+  if (!(titles instanceof Map) || titles.size === 0) return;
+  const sessions = new Map(store.snapshot().sessions.map((session) => [session.id, session]));
+  let changed = false;
+  for (const [sessionId, label] of titles) {
+    const session = sessions.get(sessionId);
+    const root = session?.agents.find((agent) => agent.isRoot);
+    if (!root || !label || root.label === label) continue;
+    changed = store.apply({
+      kind: 'agent.metadata',
+      sessionId,
+      agentId: sessionId,
+      isRoot: true,
+      agentLabel: label,
+      timestamp: Date.now(),
+    }) || changed;
+  }
+  if (changed) broadcastState();
+}
+
 function handlePayload(payload) {
   const event = normalizeHookEvent(payload);
   if ((capturePath || settingsCapturePath) && event) process.stderr.write(`[avatars] event=${event.kind}\n`);
@@ -258,10 +285,14 @@ function handlePayload(payload) {
   const targetKnown = target
     ? store.hasAgent(event.sessionId, target.id, target.isRoot)
     : true;
+  const rootKnown = event
+    ? store.hasAgent(event.sessionId, event.sessionId, true)
+    : true;
   if (event && store.apply(event)) {
     if (target && !targetKnown) resolvedMetadata.delete(`${event.sessionId}:${target.id}`);
     broadcastState();
     enrichMetadata(event);
+    if (!rootKnown) void threadTitleMonitor?.refresh();
   }
 }
 
@@ -800,6 +831,12 @@ async function startApplication() {
   settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'settings.json'));
   settings = await settingsStore.load();
   metadataResolver = new AgentMetadataResolver(path.join(codexHomePath(), 'sessions'));
+  threadTitleMonitor = new ThreadTitleMonitor(metadataResolver.threadIndexPath, {
+    getThreadIds: activeThreadIds,
+    readTitles: (threadIds) => metadataResolver.refreshThreadNames(threadIds),
+    onTitles: applyThreadTitles,
+  });
+  threadTitleMonitor.start();
 
   protocol.handle('codex-avatar', async (request) => {
     try {
@@ -879,6 +916,7 @@ app.on('before-quit', () => {
 app.on('will-quit', () => {
   if (cleanupTimer) clearInterval(cleanupTimer);
   if (avatarRefreshTimer) clearInterval(avatarRefreshTimer);
+  if (threadTitleMonitor) threadTitleMonitor.close();
   for (const timer of demoTimers) clearTimeout(timer);
   demoTimers.clear();
   globalShortcut.unregisterAll();

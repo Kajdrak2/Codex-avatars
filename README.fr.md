@@ -2,7 +2,7 @@
 
 Codex Avatars donne un compagnon animé indépendant à la tâche principale et à chaque sous-agent Codex. Les personnages utilisent le format natif des Pets Codex v2 et se déplacent directement sur un ou plusieurs écrans, sans dock, panneau coloré ni fond visible.
 
-> État du projet : la version `0.4.1` fournit un installeur Windows autonome, un paquet plugin prêt pour Git, le partage portable des Pets et l’affichage borné des agents dormants. Aucun dépôt distant ni binaire signé n’est encore publié depuis ce checkout.
+> État du projet : la version `0.4.2` fournit un installeur Windows autonome, un paquet plugin prêt pour Git, le partage portable des Pets, l’affichage borné des agents dormants et l’actualisation immédiate des titres. Aucun dépôt distant ni binaire signé n’est encore publié depuis ce checkout.
 
 ## Ce qui est déjà pris en charge
 
@@ -30,7 +30,7 @@ Le dessin sur le bureau est donc assuré par un petit processus Electron local. 
 
 ## Installation simple — recommandée
 
-1. Télécharge `Codex Avatars-Setup-0.4.1.exe` depuis la release GitHub.
+1. Télécharge `Codex Avatars-Setup-0.4.2.exe` depuis la release GitHub.
 2. Ouvre l’installeur et termine l’assistant.
 3. Dans la page Codex qui s’ouvre, installe **Codex Avatars** et vérifie ses hooks.
 
@@ -87,7 +87,7 @@ Le même avatar reste compatible avec le sélecteur **Réglages > Pets** de l’
 
 Le hook ne copie que : nom de l’événement, identifiants de session/tour/agent, type d’agent, éventuels nom/modèle/effort et nom final du dossier de projet. Le chemin complet du dossier de travail ne traverse jamais le bridge. Il exclut les prompts, arguments d’outils, sorties de commandes, transcriptions, messages, contenus de fichiers et secrets.
 
-Comme les hooks ne publient pas encore les titres de tâche, le nom de tâche de collaboration, le modèle ou l’effort, le compagnon lit le titre principal dans l’index local `session_index.jsonl`, puis corrèle `agent_id` avec le rollout correspondant et n’en extrait que `agent_path`, `model` et `effort`. Aucun contenu de conversation n’est recopié dans son état ou ses réglages.
+Comme les hooks ne publient pas encore les titres de tâche, le nom de tâche de collaboration, le modèle ou l’effort, le compagnon lit le titre principal dans l’index local `session_index.jsonl` et surveille cet index pour détecter les renommages, puis corrèle `agent_id` avec le rollout correspondant et n’en extrait que `agent_path`, `model` et `effort`. Aucun contenu de conversation n’est recopié dans son état ou ses réglages.
 
 Les événements passent par le canal local `codex-avatars-v1`. Aucun serveur TCP ni service distant n’est utilisé.
 

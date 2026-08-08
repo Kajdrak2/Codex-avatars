@@ -81,7 +81,7 @@ Renderer preferences are stored under Electron's per-user application data direc
 
 The bridge accepts only event name, session id, turn id, agent id, agent type, optional task/model/effort metadata, and a project-folder basename derived inside the hook. The full working-directory path never enters the pipe or renderer state. The named-pipe server limits payload size, ignores malformed data, and never exposes a TCP port.
 
-Current lifecycle hooks expose `agent_id` and `agent_type`, but not the main task title, collaboration task label, configured model, or reasoning effort. The optional metadata resolver reads the root title from `session_index.jsonl`, then matches `agent_id` to the local rollout filename, reads `session_meta` and the first `turn_context`, and returns only the task title, `agent_path`, nickname, model, and effort. Conversation records are not added to the agent store or settings.
+Current lifecycle hooks expose `agent_id` and `agent_type`, but not the main task title, collaboration task label, configured model, or reasoning effort. The optional metadata resolver reads the root title from `session_index.jsonl`, then matches `agent_id` to the local rollout filename, reads `session_meta` and the first `turn_context`, and returns only the task title, `agent_path`, nickname, model, and effort. A non-persistent 250 ms file-stat monitor rereads all active root titles in one pass when that index changes; generation ordering prevents a stale read from overwriting a newer rename. Conversation records are not added to the agent store or settings.
 
 ## Event accuracy
 

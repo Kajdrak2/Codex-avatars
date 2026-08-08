@@ -73,17 +73,22 @@ async function readMetadataFile(filePath) {
   return metadataFromRecords(sessionMeta, turnContext);
 }
 
-async function readThreadName(filePath, threadId) {
-  if (typeof threadId !== 'string' || !SAFE_ID.test(threadId)) return null;
-  let title = null;
+async function readThreadNames(filePath, threadIds) {
+  const expectedIds = new Set();
+  for (const threadId of threadIds || []) {
+    if (typeof threadId === 'string' && SAFE_ID.test(threadId)) expectedIds.add(threadId);
+  }
+  const titles = new Map();
+  if (expectedIds.size === 0) return titles;
   const input = fs.createReadStream(filePath, { encoding: 'utf8' });
   const reader = readline.createInterface({ input, crlfDelay: Infinity });
   try {
     for await (const line of reader) {
-      if (!line.includes(threadId)) continue;
       try {
         const record = JSON.parse(line);
-        if (record.id === threadId) title = safeThreadName(record.thread_name);
+        if (!expectedIds.has(record.id)) continue;
+        const title = safeThreadName(record.thread_name);
+        if (title) titles.set(record.id, title);
       } catch {
         // The index may be observed while Codex is appending its current line.
       }
@@ -92,7 +97,12 @@ async function readThreadName(filePath, threadId) {
     reader.close();
     input.destroy();
   }
-  return title;
+  return titles;
+}
+
+async function readThreadName(filePath, threadId) {
+  if (typeof threadId !== 'string' || !SAFE_ID.test(threadId)) return null;
+  return (await readThreadNames(filePath, [threadId])).get(threadId) || null;
 }
 
 async function findRolloutFile(directory, agentId, depth = 0) {
@@ -169,14 +179,92 @@ class AgentMetadataResolver {
     }
     return partial ? { ...partial } : null;
   }
+
+  async refreshThreadNames(agentIds) {
+    const titles = await readThreadNames(this.threadIndexPath, agentIds);
+    for (const [agentId, label] of titles) {
+      const cacheKey = `root:${agentId}`;
+      const cached = this.metadataCache.get(cacheKey);
+      if (cached) this.metadataCache.set(cacheKey, { ...cached, label });
+    }
+    return titles;
+  }
+}
+
+class ThreadTitleMonitor {
+  constructor(filePath, options = {}) {
+    this.filePath = filePath;
+    this.interval = options.interval ?? 250;
+    this.getThreadIds = options.getThreadIds || (() => []);
+    this.onTitles = options.onTitles || (() => {});
+    this.readTitles = options.readTitles || ((threadIds) => readThreadNames(filePath, threadIds));
+    this.watchFile = options.watchFile || fs.watchFile;
+    this.unwatchFile = options.unwatchFile || fs.unwatchFile;
+    this.generation = 0;
+    this.started = false;
+    this.refreshRequested = false;
+    this.refreshPromise = null;
+    this.listener = () => { void this.refresh(); };
+  }
+
+  start() {
+    if (this.started) return;
+    this.started = true;
+    this.watchFile(this.filePath, {
+      interval: this.interval,
+      persistent: false,
+    }, this.listener);
+    void this.refresh();
+  }
+
+  refresh() {
+    if (!this.started) return Promise.resolve(false);
+    this.refreshRequested = true;
+    if (this.refreshPromise) return this.refreshPromise;
+    this.refreshPromise = this.#drainRefreshes()
+      .finally(() => { this.refreshPromise = null; });
+    return this.refreshPromise;
+  }
+
+  async #drainRefreshes() {
+    let applied = false;
+    while (this.started && this.refreshRequested) {
+      this.refreshRequested = false;
+      const generation = ++this.generation;
+      try {
+        const threadIds = [...new Set(this.getThreadIds())];
+        if (threadIds.length === 0) continue;
+        const titles = await this.readTitles(threadIds);
+        if (!this.started || generation !== this.generation) return applied;
+        // A newer request arrived while reading. Skip this result and consume
+        // one fresh snapshot instead of opening another concurrent stream.
+        if (this.refreshRequested) continue;
+        await this.onTitles(titles);
+        applied = true;
+      } catch {
+        // Title refresh is opportunistic and must never disrupt the overlay.
+      }
+    }
+    return applied;
+  }
+
+  close() {
+    if (!this.started) return;
+    this.started = false;
+    this.refreshRequested = false;
+    this.generation += 1;
+    this.unwatchFile(this.filePath, this.listener);
+  }
 }
 
 module.exports = {
   AgentMetadataResolver,
+  ThreadTitleMonitor,
   findRolloutFile,
   metadataFromRecords,
   readMetadataFile,
   readThreadName,
+  readThreadNames,
   safeThreadName,
   taskLabelFromPath,
 };
