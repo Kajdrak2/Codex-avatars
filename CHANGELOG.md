@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-08-08
+
+### Fixed
+
+- Delayed terminal hooks can no longer recreate a dormant avatar after its retention period has elapsed.
+
 ## [0.6.5] - 2026-08-08
 
 ### Fixed

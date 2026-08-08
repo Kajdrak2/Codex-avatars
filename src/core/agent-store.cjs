@@ -50,6 +50,11 @@ class AgentStore {
 
   apply(event) {
     if (!event || !event.kind || !event.sessionId) return false;
+    // A companion can start after Codex has queued terminal lifecycle events.
+    // Those events describe an already completed task and must not resurrect a
+    // sleeping avatar with a fresh 30-minute retention window.
+    if (!this.sessions.has(event.sessionId)
+      && ['session.idle', 'session.ended', 'agent.stopped'].includes(event.kind)) return false;
     const session = this.#ensureSession(event);
     const timestamp = event.timestamp ?? Date.now();
 

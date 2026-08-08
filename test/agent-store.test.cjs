@@ -29,11 +29,20 @@ test('tracks independent subagents and retains them as bounded dormant agents af
 
 test('expires idle roots but reactivation clears their dormant deadline', () => {
   const store = new AgentStore({ dormantRetentionMs: 100, maxDormantAgents: 10 });
+  store.apply({ kind: 'session.started', sessionId: 'sleeping', project: 'alpha', timestamp: 1 });
   store.apply({ kind: 'session.idle', sessionId: 'sleeping', project: 'alpha', timestamp: 10 });
   assert.equal(store.snapshot().sessions[0].agents[0].status, 'idle');
   store.apply({ kind: 'session.working', sessionId: 'sleeping', timestamp: 50 });
   assert.equal(store.cleanup(500), false);
   assert.equal(store.snapshot().sessions[0].agents[0].status, 'working');
+});
+
+test('does not resurrect an unknown session from delayed terminal events', () => {
+  const store = new AgentStore({ dormantRetentionMs: 100 });
+  assert.equal(store.apply({ kind: 'session.ended', sessionId: 'finished', timestamp: 1 }), false);
+  assert.equal(store.apply({ kind: 'session.idle', sessionId: 'finished', timestamp: 2 }), false);
+  assert.equal(store.apply({ kind: 'agent.stopped', sessionId: 'finished', agentId: 'child', timestamp: 3 }), false);
+  assert.deepEqual(store.snapshot().sessions, []);
 });
 
 test('a subagent start wakes an idle main agent', () => {
