@@ -3,6 +3,7 @@
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const {
   app,
   BrowserWindow,
@@ -28,9 +29,14 @@ const {
   marketplacePath: resolvePluginMarketplacePath,
   pluginDeepLink,
 } = require('./core/plugin-integration.cjs');
-const { resolveRoamingZone, serializeDisplay } = require('./core/roaming-zone.cjs');
+const {
+  bootstrapWindowBounds,
+  localRectToVirtual,
+  resolveRoamingZone,
+  serializeDisplay,
+} = require('./core/roaming-zone.cjs');
 const { exportPetPackage, importPetPackage } = require('./core/pet-packages.cjs');
-const { SettingsStore } = require('./core/settings-store.cjs');
+const { mergeSettings, SettingsStore } = require('./core/settings-store.cjs');
 const {
   hooksStatus,
   installHooks,
@@ -137,7 +143,11 @@ function publicAvatar(record) {
     columns: record.columns,
     rows: record.rows,
     source: record.source,
-    assetUrl: `codex-avatar://asset/${encodeURIComponent(record.id)}`,
+    // `codex-avatar:` works in development but packaged Windows renderers can
+    // reject a local WebP response from that custom protocol. Every record has
+    // already passed the local Pet path and dimension checks, so a file URL is
+    // the reliable renderer-only delivery path for this validated asset.
+    assetUrl: pathToFileURL(record.spritesheetPath).toString(),
   };
 }
 
@@ -210,11 +220,27 @@ function broadcastState() {
 
 function broadcastSettings() {
   if (!settings) return;
-  broadcast('avatars:settings', {
-    settings,
-    zone: currentZone(),
-    displays: currentDisplays(),
-  });
+  broadcast('avatars:settings', settingsPayload(settings));
+}
+
+function settingsPayload(value) {
+  const displays = currentDisplays();
+  return {
+    settings: value,
+    zone: resolveRoamingZone(value?.zone, displays),
+    displays,
+  };
+}
+
+function previewAvatarSizes(patch) {
+  if (!settings || !overlayWindow || overlayWindow.isDestroyed() || overlayWindow.webContents.isDestroyed()) return;
+  const source = patch && typeof patch === 'object' && !Array.isArray(patch) ? patch : {};
+  const sizes = {};
+  if (Object.hasOwn(source, 'mainAvatarSize')) sizes.mainAvatarSize = source.mainAvatarSize;
+  if (Object.hasOwn(source, 'subagentAvatarSize')) sizes.subagentAvatarSize = source.subagentAvatarSize;
+  if (Object.keys(sizes).length === 0) return;
+  const preview = mergeSettings(settings, sizes);
+  overlayWindow.webContents.send('avatars:settings', settingsPayload(preview));
 }
 
 function metadataTarget(event) {
@@ -313,8 +339,41 @@ function attachWindowDiagnostics(window, label) {
 
 function updateOverlayInputMode() {
   if (!overlayWindow || overlayWindow.isDestroyed() || !settings) return;
-  const ignore = settings.passive || !overlayHitTest;
+  const ignore = !settings.overlayEnabled || settings.passive || !overlayHitTest;
   overlayWindow.setIgnoreMouseEvents(ignore, { forward: true });
+}
+
+function sameBounds(left, right) {
+  return left.x === right.x
+    && left.y === right.y
+    && left.width === right.width
+    && left.height === right.height;
+}
+
+function lockWindowToBounds(window, bounds, label) {
+  if (!window || window.isDestroyed()) return false;
+  window.setBounds(bounds, false);
+  window.setResizable(false);
+  window.setMovable(false);
+  const actual = window.getBounds();
+  if (!sameBounds(actual, bounds)) {
+    process.stderr.write(`[${label}] requested bounds ${JSON.stringify(bounds)}, received ${JSON.stringify(actual)}\n`);
+    return false;
+  }
+  return true;
+}
+
+function syncOverlayVisibility() {
+  if (!overlayWindow || overlayWindow.isDestroyed() || !settings) return;
+  if (!settings.overlayEnabled) {
+    overlayWindow.hide();
+    updateOverlayInputMode();
+    return;
+  }
+  overlayWindow.showInactive();
+  overlayWindow.setAlwaysOnTop(true, 'screen-saver');
+  overlayWindow.moveTop();
+  updateOverlayInputMode();
 }
 
 async function applySettingsPatch(patch, options = {}) {
@@ -327,26 +386,30 @@ async function applySettingsPatch(patch, options = {}) {
 
   if (options.rebuildOverlay || previousZone !== JSON.stringify(settings.zone)) {
     await rebuildOverlayWindow();
+  } else {
+    syncOverlayVisibility();
   }
   return settings;
 }
 
 function createOverlayWindow() {
-  const resolved = currentZone();
-  const bounds = capturePath
+  const displays = currentDisplays();
+  const resolved = resolveRoamingZone(settings?.zone, displays);
+  const targetBounds = capturePath
     ? { x: resolved.windowBounds.x, y: resolved.windowBounds.y, width: 1200, height: 700 }
     : resolved.windowBounds;
+  const initialBounds = bootstrapWindowBounds(targetBounds, displays);
 
   overlayWindow = new BrowserWindow({
-    ...bounds,
+    ...initialBounds,
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
     alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: false,
-    resizable: false,
-    movable: false,
+    resizable: true,
+    movable: true,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
@@ -372,9 +435,8 @@ function createOverlayWindow() {
   overlayWindow.loadFile(path.join(__dirname, 'renderer', 'overlay.html'));
   overlayWindow.once('ready-to-show', () => {
     if (!overlayWindow || overlayWindow.isDestroyed()) return;
-    overlayWindow.showInactive();
-    overlayWindow.setAlwaysOnTop(true, 'screen-saver');
-    overlayWindow.moveTop();
+    lockWindowToBounds(overlayWindow, targetBounds, 'overlay');
+    syncOverlayVisibility();
     broadcastState();
     broadcastSettings();
 
@@ -412,12 +474,7 @@ function settleZonePicker(rectangle) {
     resolve(null);
     return;
   }
-  resolve({
-    x: bounds.x + Math.round(Number(rectangle.x) || 0),
-    y: bounds.y + Math.round(Number(rectangle.y) || 0),
-    width: Math.max(160, Math.round(Number(rectangle.width) || 0)),
-    height: Math.max(120, Math.round(Number(rectangle.height) || 0)),
-  });
+  resolve(localRectToVirtual(rectangle, bounds));
 }
 
 function selectCustomZone() {
@@ -425,20 +482,22 @@ function selectCustomZone() {
     zonePickerWindow.focus();
     return Promise.resolve(null);
   }
-  const allDisplays = resolveRoamingZone({ mode: 'all' }, currentDisplays());
+  const displays = currentDisplays();
+  const allDisplays = resolveRoamingZone({ mode: 'all' }, displays);
   zonePickerBounds = allDisplays.windowBounds;
+  const initialBounds = bootstrapWindowBounds(zonePickerBounds, displays);
   if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.hide();
 
   zonePickerWindow = new BrowserWindow({
-    ...zonePickerBounds,
+    ...initialBounds,
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
     alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: false,
-    resizable: false,
-    movable: false,
+    resizable: true,
+    movable: true,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
@@ -461,6 +520,7 @@ function selectCustomZone() {
   });
   zonePickerWindow.once('ready-to-show', () => {
     if (!zonePickerWindow || zonePickerWindow.isDestroyed()) return;
+    lockWindowToBounds(zonePickerWindow, zonePickerBounds, 'zone-picker');
     zonePickerWindow.show();
     zonePickerWindow.focus();
   });
@@ -551,10 +611,19 @@ function createTray() {
 function rebuildTrayMenu() {
   if (!tray || !settings) return;
   const french = settings.language === 'fr';
+  tray.setToolTip(settings.overlayEnabled
+    ? 'Codex Avatars'
+    : (french ? 'Codex Avatars — désactivés' : 'Codex Avatars — disabled'));
   tray.setContextMenu(Menu.buildFromTemplate([
     {
       label: french ? 'Ouvrir les réglages' : 'Open settings',
       click: showSettingsWindow,
+    },
+    {
+      label: settings.overlayEnabled
+        ? (french ? 'Désactiver les avatars' : 'Disable avatars')
+        : (french ? 'Activer les avatars' : 'Enable avatars'),
+      click: () => void applySettingsPatch({ overlayEnabled: !settings.overlayEnabled }),
     },
     {
       label: french ? 'Mode passif (clics traversants)' : 'Passive mode (click-through)',
@@ -709,6 +778,10 @@ function registerIpc() {
     requireWindowSender(event, settingsWindow, 'settings');
     return applySettingsPatch(patch);
   });
+  ipcMain.on('avatars:preview-avatar-sizes', (event, patch) => {
+    if (!isWindowSender(event, settingsWindow)) return;
+    previewAvatarSizes(patch);
+  });
   ipcMain.handle('avatars:set-launch-at-login', (event, value) => {
     requireWindowSender(event, settingsWindow, 'settings');
     app.setLoginItemSettings({
@@ -737,7 +810,7 @@ function registerIpc() {
     requireWindowSender(event, overlayWindow, 'overlay');
     overlayHitTest = Boolean(value);
     updateOverlayInputMode();
-    return !settings.passive && overlayHitTest;
+    return settings.overlayEnabled && !settings.passive && overlayHitTest;
   });
   ipcMain.handle('avatars:create-avatar', async (event, brief) => {
     requireWindowSender(event, settingsWindow, 'settings');

@@ -39,7 +39,7 @@ The repo marketplace lives at `.agents/plugins/marketplace.json`; the plugin sou
 
 - `hooks/hooks.json` subscribes to session, permission, prompt, stop, and subagent lifecycle events.
 - `scripts/codex-hook.ps1` forwards only explicit fields. On the first event it can start either the source renderer, a configured packaged companion, or the standard per-user install.
-- `skills/create-codex-avatar/` routes avatar creation through `hatch-pet` and the shared Codex Pets directory.
+- `skills/create-codex-avatar/` explicitly invokes `$hatch-pet`, resolves the bundled workspace Python (including Pillow), and writes only to the shared Codex Pets directory.
 
 Codex copies installed local plugins into its cache. `install.ps1` therefore stores `CODEX_AVATARS_DEV_ROOT` as a user environment variable so a cached hook can still find a cloned source renderer. Packaged installs instead resolve the companion executable from the install directory.
 
@@ -51,17 +51,19 @@ The first normal packaged launch shows a four-step guide. Its plugin action open
 
 ## Overlay and control surface
 
-The overlay BrowserWindow covers the resolved union of selected work areas, has an alpha-zero background, and renders only actor nodes. It is separate from the normal settings window.
+The overlay BrowserWindow covers the resolved union of selected work areas, has an alpha-zero background, and renders only actor nodes. It is separate from the normal settings window. On Windows, a virtual-desktop-sized transparent window is first created inside one work area and expanded to its final union only after the renderer is ready; this avoids the native creation-time clamp to a single monitor. The same bootstrap is used by the custom-zone picker.
 
 In passive mode the entire window ignores mouse input. The settings window, tray menu, and global `Ctrl+Alt+A` shortcut are outside that input surface, so passive mode cannot lock the user out. In interactive mode forwarded pointer movement enables input only while the pointer is over an avatar; transparent desktop regions continue to pass clicks through.
+
+The independent enable/disable control hides or restores the overlay window without terminating the tray process or discarding the current agent store. Size previews use a sanitized overlay-only IPC message while the sliders move; the settings file is written once when the user commits the value.
 
 The roaming resolver supports:
 
 - all displays;
 - an explicit set of display ids;
-- one clamped rectangle in virtual-screen coordinates, including negative monitor coordinates, selected through a full-desktop drag surface.
+- one clamped rectangle in virtual-screen coordinates, including negative monitor coordinates, selected through a full-desktop drag surface that is expanded after startup just like the overlay.
 
-Actors receive deterministic initial display assignments. When more than one zone is active they cycle between zones; changing zones relocates the actor into the target work area before normal movement resumes, avoiding the old constraint loop that pinned actors to the primary display.
+Actors receive deterministic initial display assignments. When more than one zone is active, movement follows a topology built from the actual shared edges in the Windows display arrangement: an avatar crosses a shared seam, uses any intermediary screens, and never jumps across a disconnected gap. Manual dragging uses the same edge topology before changing the actor’s roaming screen.
 
 Idle main agents and completed subagents enter a dormant state after the normal completion grace period. The overlay hides them by default or renders them as stationary sleeping Pets when enabled. The in-memory dormant history expires after 30 minutes and is capped at 50 agents, so long-running companions remain bounded.
 

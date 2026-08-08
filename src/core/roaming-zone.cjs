@@ -35,6 +35,17 @@ function clampRect(rectangle, container) {
   return { x, y, width: right - x, height: bottom - y };
 }
 
+function intersectRects(left, right) {
+  const first = normalizeRect(left);
+  const second = normalizeRect(right);
+  const x = Math.max(first.x, second.x);
+  const y = Math.max(first.y, second.y);
+  const edgeX = Math.min(first.x + first.width, second.x + second.width);
+  const edgeY = Math.min(first.y + first.height, second.y + second.height);
+  if (edgeX <= x || edgeY <= y) return null;
+  return { x, y, width: edgeX - x, height: edgeY - y };
+}
+
 function serializeDisplay(display, index = 0) {
   const workArea = normalizeRect(display?.workArea || display?.bounds);
   const bounds = normalizeRect(display?.bounds || workArea);
@@ -45,6 +56,35 @@ function serializeDisplay(display, index = 0) {
     scaleFactor: Number(display?.scaleFactor) || 1,
     bounds,
     workArea,
+  };
+}
+
+// Windows clamps an oversized BrowserWindow to one monitor when it is created.
+// Start on the monitor containing the target origin, then expand to the final
+// virtual-desktop bounds only after the renderer is ready.
+function bootstrapWindowBounds(windowBounds, rawDisplays) {
+  const target = normalizeRect(windowBounds);
+  const displays = (rawDisplays || []).map(serializeDisplay);
+  if (displays.length === 0) return target;
+  const containsOrigin = (display) => target.x >= display.workArea.x
+    && target.x < display.workArea.x + display.workArea.width
+    && target.y >= display.workArea.y
+    && target.y < display.workArea.y + display.workArea.height;
+  const anchor = displays.find(containsOrigin)
+    || displays.find((display) => rectanglesIntersect(display.workArea, target))
+    || displays.find((display) => display.primary)
+    || displays[0];
+  return intersectRects(target, anchor.workArea) || anchor.workArea;
+}
+
+function localRectToVirtual(rectangle, windowBounds) {
+  const bounds = normalizeRect(windowBounds);
+  const source = rectangle && typeof rectangle === 'object' ? rectangle : {};
+  return {
+    x: bounds.x + Math.round(Number(source.x) || 0),
+    y: bounds.y + Math.round(Number(source.y) || 0),
+    width: Math.max(160, Math.round(Number(source.width) || 0)),
+    height: Math.max(120, Math.round(Number(source.height) || 0)),
   };
 }
 
@@ -98,7 +138,10 @@ function rectanglesIntersect(left, right) {
 }
 
 module.exports = {
+  bootstrapWindowBounds,
   clampRect,
+  intersectRects,
+  localRectToVirtual,
   normalizeRect,
   rectanglesIntersect,
   resolveRoamingZone,

@@ -6,6 +6,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-08-08
+
+### Fixed
+
+- Gallery previews again use the app's direct atlas delivery path, avoiding the blank packaged-Windows thumbnails caused by native-image decoding.
+
+### Changed
+
+- The generated avatar request and Codex Avatar skill now define completion as final independent QA plus installation of both Pet files, rather than atlas assembly alone.
+
+## [0.4.4] - 2026-08-08
+
+### Fixed
+
+- Pet cards select the most opaque sprite cell in the real atlas, rather than relying on an animation frame which may legitimately be transparent.
+- Autonomous avatars now follow shared screen edges and intermediary monitors from the Windows display arrangement instead of jumping directly to another screen.
+- Dragging retains pointer capture through release or cancellation, including across an adjacent screen edge; manual placement can cross monitors without snapping back.
+
+## [0.4.3] - 2026-08-08
+
+### Added
+
+- A persistent enable/disable button in settings and a matching tray action that hides every avatar without stopping the companion process.
+
+### Changed
+
+- Main-agent and subagent size sliders now preview directly on the desktop while they are dragged and persist only when the change is committed.
+- Avatar creation now explicitly invokes `$hatch-pet`, resolves the bundled Codex workspace runtime before any Python command, and verifies Pillow instead of falling back to a system interpreter.
+
+### Fixed
+
+- Multi-monitor overlay windows now bootstrap on one work area and expand after renderer startup, avoiding the Windows clamp that silently reduced a virtual-desktop window to one monitor.
+- The screenshot-style custom-zone selector now spans the real virtual desktop, including displays with negative coordinates, so a zone can be drawn on a non-primary monitor.
+
 ## [0.4.2] - 2026-08-08
 
 ### Fixed

@@ -8,6 +8,7 @@ const translations = {
     active: (count, dormant = 0) => count
       ? `${count} active agent${count > 1 ? 's' : ''}${dormant ? ` · ${dormant} sleeping` : ''}`
       : (dormant ? `${dormant} sleeping agent${dormant > 1 ? 's' : ''}` : 'Waiting for Codex'),
+    paused: 'Avatars disabled', enableAvatars: 'Enable avatars', disableAvatars: 'Disable avatars',
     controlEyebrow: 'Always available', controlTitle: 'Overlay', passiveTitle: 'Passive mode',
     passiveCopy: 'Clicks pass through avatars. Turn it off here, from the tray icon, or with Ctrl + Alt + A.',
     startupTitle: 'Start with Windows', startupCopy: 'Keeps the invisible companion ready. Codex hooks can also start it on the first event.',
@@ -62,6 +63,7 @@ const translations = {
     active: (count, dormant = 0) => count
       ? `${count} agent${count > 1 ? 's' : ''} actif${count > 1 ? 's' : ''}${dormant ? ` · ${dormant} endormi${dormant > 1 ? 's' : ''}` : ''}`
       : (dormant ? `${dormant} agent${dormant > 1 ? 's' : ''} endormi${dormant > 1 ? 's' : ''}` : 'En attente de Codex'),
+    paused: 'Avatars désactivés', enableAvatars: 'Activer les avatars', disableAvatars: 'Désactiver les avatars',
     controlEyebrow: 'Toujours accessible', controlTitle: 'Overlay', passiveTitle: 'Mode passif',
     passiveCopy: 'Les clics traversent les avatars. Désactivez-le ici, depuis l’icône de zone de notification ou avec Ctrl + Alt + A.',
     startupTitle: 'Démarrer avec Windows', startupCopy: 'Garde le compagnon invisible prêt. Les hooks Codex peuvent aussi le lancer au premier événement.',
@@ -115,6 +117,7 @@ const translations = {
 
 const elements = {
   activeCount: document.querySelector('#active-count'), language: document.querySelector('#language-select'), tour: document.querySelector('#tour-button'),
+  overlayEnabledButton: document.querySelector('#overlay-enabled-button'),
   passive: document.querySelector('#passive-toggle'), startup: document.querySelector('#startup-toggle'), avatarGrid: document.querySelector('#avatar-grid'),
   avatarEmpty: document.querySelector('#avatar-empty'), mainAvatarSize: document.querySelector('#main-avatar-size'), mainAvatarSizeValue: document.querySelector('#main-avatar-size-value'),
   subagentAvatarSize: document.querySelector('#subagent-avatar-size'), subagentAvatarSizeValue: document.querySelector('#subagent-avatar-size-value'),
@@ -134,6 +137,7 @@ let demoRunning = false;
 let onboardingStep = 0;
 let toastTimer = null;
 let currentAgentState = { sessions: [] };
+let sizePreviewFrame = null;
 
 function c() { return translations[settings?.language === 'fr' ? 'fr' : 'en']; }
 function setText(selector, value) { const element = document.querySelector(selector); if (element) element.textContent = value; }
@@ -176,6 +180,7 @@ function localize() {
   });
   elements.hooksButton.textContent = hooksInstalled ? copy.disableHooks : copy.enableHooks;
   elements.demoButton.textContent = demoRunning ? copy.stopDemo : copy.runDemo;
+  elements.overlayEnabledButton.textContent = settings?.overlayEnabled ? copy.disableAvatars : copy.enableAvatars;
   renderOnboarding();
 }
 
@@ -209,9 +214,12 @@ function renderAvatarGrid() {
     card.className = `avatar-option${enabled.has(avatar.id) ? ' is-enabled' : ''}`;
     const preview = document.createElement('span');
     preview.className = 'pet-preview';
+    // Use the same WebP delivery path as the overlay; native-image thumbnail
+    // decoding is not reliable in every packaged Windows runtime.
     preview.style.backgroundImage = `url("${avatar.assetUrl}")`;
     preview.style.backgroundSize = `800% ${avatar.rows * 100}%`;
-    preview.style.backgroundPosition = '0 0';
+    const previewRow = Math.min(7, Math.max(0, avatar.rows - 1));
+    preview.style.backgroundPosition = `0 ${previewRow * (100 / Math.max(1, avatar.rows - 1))}%`;
     const copyBlock = document.createElement('span');
     copyBlock.className = 'avatar-option-copy';
     const name = document.createElement('strong');
@@ -287,6 +295,9 @@ function renderCustomZone() {
 function renderSettings() {
   if (!settings) return;
   elements.language.value = settings.language;
+  elements.overlayEnabledButton.textContent = settings.overlayEnabled ? c().disableAvatars : c().enableAvatars;
+  elements.overlayEnabledButton.classList.toggle('is-paused', !settings.overlayEnabled);
+  elements.overlayEnabledButton.setAttribute('aria-pressed', String(settings.overlayEnabled));
   elements.passive.checked = settings.passive;
   elements.mainAvatarSize.value = settings.mainAvatarSize;
   elements.mainAvatarSizeValue.textContent = `${settings.mainAvatarSize}px`;
@@ -309,6 +320,11 @@ function renderSettings() {
 
 function updateActiveCount(state) {
   currentAgentState = state || { sessions: [] };
+  if (settings && !settings.overlayEnabled) {
+    elements.activeCount.textContent = c().paused;
+    elements.activeCount.classList.remove('is-active');
+    return;
+  }
   const agents = currentAgentState.sessions.flatMap((session) => session.agents || []);
   const count = agents.filter((agent) => ['working', 'attention'].includes(agent.status)).length;
   const dormant = settings?.showDormantAgents
@@ -344,12 +360,31 @@ function openOnboarding() {
 
 elements.language.addEventListener('change', () => void save({ language: elements.language.value }));
 elements.tour.addEventListener('click', openOnboarding);
+elements.overlayEnabledButton.addEventListener('click', () => void save({ overlayEnabled: !settings.overlayEnabled }));
 elements.passive.addEventListener('change', () => void save({ passive: elements.passive.checked }));
 elements.startup.addEventListener('change', async () => { elements.startup.checked = await api.setLaunchAtLogin(elements.startup.checked); });
-elements.mainAvatarSize.addEventListener('input', () => { elements.mainAvatarSizeValue.textContent = `${elements.mainAvatarSize.value}px`; });
-elements.mainAvatarSize.addEventListener('change', () => void save({ mainAvatarSize: Number(elements.mainAvatarSize.value) }));
-elements.subagentAvatarSize.addEventListener('input', () => { elements.subagentAvatarSizeValue.textContent = `${elements.subagentAvatarSize.value}px`; });
-elements.subagentAvatarSize.addEventListener('change', () => void save({ subagentAvatarSize: Number(elements.subagentAvatarSize.value) }));
+function previewAvatarSizes() {
+  elements.mainAvatarSizeValue.textContent = `${elements.mainAvatarSize.value}px`;
+  elements.subagentAvatarSizeValue.textContent = `${elements.subagentAvatarSize.value}px`;
+  if (sizePreviewFrame !== null) return;
+  sizePreviewFrame = requestAnimationFrame(() => {
+    sizePreviewFrame = null;
+    api.previewAvatarSizes({
+      mainAvatarSize: Number(elements.mainAvatarSize.value),
+      subagentAvatarSize: Number(elements.subagentAvatarSize.value),
+    });
+  });
+}
+function persistAvatarSizes() {
+  void save({
+    mainAvatarSize: Number(elements.mainAvatarSize.value),
+    subagentAvatarSize: Number(elements.subagentAvatarSize.value),
+  });
+}
+elements.mainAvatarSize.addEventListener('input', previewAvatarSizes);
+elements.mainAvatarSize.addEventListener('change', persistAvatarSizes);
+elements.subagentAvatarSize.addEventListener('input', previewAvatarSizes);
+elements.subagentAvatarSize.addEventListener('change', persistAvatarSizes);
 elements.labels.addEventListener('change', () => void save({ showLabels: elements.labels.checked }));
 elements.agentDetails.addEventListener('change', () => void save({ showAgentDetails: elements.agentDetails.checked }));
 elements.dormantAgents.addEventListener('change', () => void save({ showDormantAgents: elements.dormantAgents.checked }));

@@ -5,8 +5,9 @@ const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 
 const DEFAULT_SETTINGS = Object.freeze({
-  schemaVersion: 6,
+  schemaVersion: 7,
   language: 'en',
+  overlayEnabled: true,
   passive: true,
   enabledAvatarIds: [],
   avatarSelectionInitialized: false,
@@ -68,6 +69,9 @@ function normalizeSettings(value) {
   return {
     schemaVersion: DEFAULT_SETTINGS.schemaVersion,
     language: source.language === 'fr' ? 'fr' : 'en',
+    overlayEnabled: source.overlayEnabled === undefined
+      ? DEFAULT_SETTINGS.overlayEnabled
+      : Boolean(source.overlayEnabled),
     passive: source.passive === undefined ? DEFAULT_SETTINGS.passive : Boolean(source.passive),
     enabledAvatarIds: normalizeStringArray(source.enabledAvatarIds),
     avatarSelectionInitialized: Boolean(source.avatarSelectionInitialized),

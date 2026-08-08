@@ -199,6 +199,21 @@ h2 {
   margin-top: 5px;
 }
 
+.control-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#overlay-enabled-button.is-paused {
+  color: #07120e;
+  font-weight: 750;
+  background: #63e0b6;
+  border-color: #76e8c1;
+}
+
 .eyebrow {
   color: #79e0bd;
   text-transform: uppercase;

@@ -1,6 +1,6 @@
 {
   "name": "codex-avatars",
-  "version": "0.4.2",
+  "version": "0.4.5",
   "description": "Independent Codex Pet avatars roaming invisibly across one or more Windows displays.",
   "main": "src/main.cjs",
   "type": "commonjs",
@@ -29,38 +29,16 @@
     "appId": "dev.codexavatars.desktop",
     "productName": "Codex Avatars",
     "asar": true,
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "src/**/*",
-      "assets/**/*",
-      "package.json"
-    ],
+    "directories": { "output": "dist" },
+    "files": ["src/**/*", "assets/**/*", "package.json"],
     "extraResources": [
-      {
-        "from": "scripts/codex-hook.ps1",
-        "to": "hooks/codex-hook.ps1"
-      },
-      {
-        "from": ".agents",
-        "to": "integration/.agents"
-      },
-      {
-        "from": "plugins",
-        "to": "integration/plugins"
-      }
+      { "from": "scripts/codex-hook.ps1", "to": "hooks/codex-hook.ps1" },
+      { "from": ".agents", "to": "integration/.agents" },
+      { "from": "plugins", "to": "integration/plugins" }
     ],
     "win": {
       "icon": "assets/icon.png",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {

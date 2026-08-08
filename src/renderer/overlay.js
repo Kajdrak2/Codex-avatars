@@ -2,6 +2,7 @@
 
 const api = window.codexAvatars;
 const world = document.querySelector('#world');
+const topology = window.CodexAvatarTopology;
 const actors = new Map();
 const animations = {
   idle: { row: 0, durations: [280, 110, 110, 140, 140, 320] },
@@ -70,22 +71,112 @@ function randomPoint(actor, selected) {
   };
 }
 
+function actorHeight(actor) {
+  const size = avatarSizeFor(actor.agent);
+  return size * 1.08334 + (settings?.showLabels ? (settings?.showAgentDetails ? 50 : 34) : 0);
+}
+
+function safeArea(actor, selected) {
+  const size = avatarSizeFor(actor.agent);
+  const sidePadding = settings?.showLabels ? 18 : 2;
+  const height = actorHeight(actor);
+  return {
+    minX: selected.x + sidePadding,
+    maxX: Math.max(selected.x + sidePadding, selected.x + selected.width - size - sidePadding),
+    minY: selected.y,
+    maxY: Math.max(selected.y, selected.y + selected.height - height),
+  };
+}
+
+function clamp(value, minimum, maximum) {
+  return Math.max(minimum, Math.min(value, maximum));
+}
+
+function portalPoint(actor, edge, fromZone, toZone) {
+  const from = safeArea(actor, fromZone);
+  const to = safeArea(actor, toZone);
+  if (edge.axis === 'x') {
+    const minY = Math.max(from.minY, to.minY);
+    const maxY = Math.min(from.maxY, to.maxY);
+    return {
+      x: edge.boundary - avatarSizeFor(actor.agent) / 2,
+      y: clamp(actor.y, minY, Math.max(minY, maxY)),
+    };
+  }
+  const minX = Math.max(from.minX, to.minX);
+  const maxX = Math.min(from.maxX, to.maxX);
+  return {
+    x: clamp(actor.x, minX, Math.max(minX, maxX)),
+    y: edge.boundary - actorHeight(actor) / 2,
+  };
+}
+
+function activateNextWaypoint(actor) {
+  const waypoint = actor.route.shift();
+  if (!waypoint) return false;
+  actor.targetX = waypoint.x;
+  actor.targetY = waypoint.y;
+  actor.targetZoneIndex = waypoint.zoneIndex;
+  actor.transition = waypoint.transition || null;
+  actor.targetAt = performance.now() + 3_000 + nextRandom(actor) * 6_000;
+  return true;
+}
+
+function nextReachableZone(zones, start) {
+  for (let offset = 1; offset < zones.length; offset += 1) {
+    const candidate = (start + offset) % zones.length;
+    if (topology.findZonePath(zones, start, candidate)) return candidate;
+  }
+  return start;
+}
+
 function chooseTarget(actor, options = {}) {
   const zones = viewportZones();
-  const previousZone = actor.zoneIndex;
   if (!Number.isInteger(actor.zoneIndex)) actor.zoneIndex = (options.initialIndex || 0) % zones.length;
-  if (options.cycleZone && zones.length > 1) actor.zoneIndex = (actor.zoneIndex + 1) % zones.length;
   actor.zoneIndex %= zones.length;
-  const selected = zones[actor.zoneIndex] || zones[0];
+  const targetZoneIndex = options.cycleZone && zones.length > 1
+    ? nextReachableZone(zones, actor.zoneIndex)
+    : actor.zoneIndex;
+  const selected = zones[targetZoneIndex] || zones[0];
   const target = randomPoint(actor, selected);
-  actor.targetX = target.x;
-  actor.targetY = target.y;
-  actor.targetAt = performance.now() + 3_000 + nextRandom(actor) * 6_000;
-  if (options.immediate || (Number.isInteger(previousZone) && previousZone !== actor.zoneIndex)) {
-    const placement = randomPoint(actor, selected);
-    actor.x = placement.x;
-    actor.y = placement.y;
+  actor.route = [];
+  actor.transition = null;
+
+  if (options.immediate) {
+    actor.zoneIndex = targetZoneIndex;
+    actor.targetZoneIndex = targetZoneIndex;
+    actor.x = target.x;
+    actor.y = target.y;
+    actor.targetX = target.x;
+    actor.targetY = target.y;
+    actor.targetAt = performance.now() + 3_000 + nextRandom(actor) * 6_000;
+    return;
   }
+
+  const path = topology.findZonePath(zones, actor.zoneIndex, targetZoneIndex);
+  if (!path || path.length === 1) {
+    actor.targetX = target.x;
+    actor.targetY = target.y;
+    actor.targetZoneIndex = actor.zoneIndex;
+    actor.targetAt = performance.now() + 3_000 + nextRandom(actor) * 6_000;
+    return;
+  }
+
+  let finalTransition = null;
+  for (let index = 0; index < path.length - 1; index += 1) {
+    const from = path[index];
+    const to = path[index + 1];
+    const edge = topology.sharedEdge(zones[from], zones[to]);
+    if (!edge) continue;
+    finalTransition = { from, to, edge };
+    actor.route.push({
+      ...portalPoint(actor, edge, zones[from], zones[to]),
+      zoneIndex: to,
+      transition: finalTransition,
+    });
+  }
+  actor.route.push({ ...target, zoneIndex: targetZoneIndex, transition: finalTransition });
+  activateNextWaypoint(actor);
 }
 
 function activeAvatarRecords() {
@@ -143,6 +234,9 @@ function createActor(agent, avatar, index) {
     randomState: (hash(`${agent.id}:${index}`) || 1) >>> 0,
     zoneIndex: index % Math.max(1, viewportZones().length),
     dragging: false,
+    route: [],
+    transition: null,
+    targetZoneIndex: 0,
   };
   chooseTarget(actor, { immediate: true, initialIndex: index });
   return actor;
@@ -229,7 +323,19 @@ function moveActor(actor, deltaSeconds, time) {
   let dx = actor.targetX - actor.x;
   let dy = actor.targetY - actor.y;
   let distance = Math.hypot(dx, dy);
-  if (distance < 10 || time > actor.targetAt) {
+  if (distance < 10) {
+    actor.x = actor.targetX;
+    actor.y = actor.targetY;
+    if (actor.route.length > 0) {
+      actor.zoneIndex = actor.targetZoneIndex;
+      activateNextWaypoint(actor);
+    } else {
+      chooseTarget(actor, { cycleZone: true });
+    }
+    dx = actor.targetX - actor.x;
+    dy = actor.targetY - actor.y;
+    distance = Math.hypot(dx, dy);
+  } else if (time > actor.targetAt && !actor.transition && actor.route.length === 0) {
     chooseTarget(actor, { cycleZone: true });
     dx = actor.targetX - actor.x;
     dy = actor.targetY - actor.y;
@@ -247,7 +353,7 @@ function moveActor(actor, deltaSeconds, time) {
 }
 
 function applySeparation() {
-  const list = [...actors.values()].filter((actor) => !actor.dragging);
+  const list = [...actors.values()].filter((actor) => !actor.dragging && !actor.transition);
   for (let leftIndex = 0; leftIndex < list.length; leftIndex += 1) {
     for (let rightIndex = leftIndex + 1; rightIndex < list.length; rightIndex += 1) {
       const left = list[leftIndex];
@@ -268,17 +374,12 @@ function applySeparation() {
 
 function constrainActor(actor) {
   const zones = viewportZones();
-  const size = avatarSizeFor(actor.agent);
-  const height = size * 1.08334 + (settings?.showLabels ? (settings?.showAgentDetails ? 50 : 34) : 0);
-  const centerX = actor.x + size / 2;
-  const centerY = actor.y + height / 2;
+  if (actor.transition) return;
   actor.zoneIndex = Number.isInteger(actor.zoneIndex) ? actor.zoneIndex % zones.length : 0;
   const selected = zones[actor.zoneIndex] || zones[0];
-  const sidePadding = settings?.showLabels ? 18 : 2;
-  actor.x = Math.max(selected.x + sidePadding,
-    Math.min(actor.x, selected.x + selected.width - size - sidePadding));
-  actor.y = Math.max(selected.y,
-    Math.min(actor.y, selected.y + selected.height - height));
+  const safe = safeArea(actor, selected);
+  actor.x = clamp(actor.x, safe.minX, safe.maxX);
+  actor.y = clamp(actor.y, safe.minY, safe.maxY);
 }
 
 function animate(time) {
@@ -302,15 +403,25 @@ function updateInteractiveClass() {
 }
 
 document.addEventListener('mousemove', (event) => {
-  if (draggedActor) {
-    draggedActor.x = event.clientX - dragOffset.x;
-    draggedActor.y = event.clientY - dragOffset.y;
-    return;
-  }
+  if (draggedActor) return;
   const hit = Boolean(document.elementFromPoint(event.clientX, event.clientY)?.closest('.avatar'));
   if (hit !== lastHitTest) {
     lastHitTest = hit;
     void api.setOverlayHitTest(hit);
+  }
+});
+
+document.addEventListener('pointermove', (event) => {
+  if (!draggedActor) return;
+  draggedActor.x = event.clientX - dragOffset.x;
+  draggedActor.y = event.clientY - dragOffset.y;
+  const zones = viewportZones();
+  const centerX = draggedActor.x + avatarSizeFor(draggedActor.agent) / 2;
+  const centerY = draggedActor.y + actorHeight(draggedActor) / 2;
+  const enteredZoneIndex = topology.zoneIndexAtPoint(zones, centerX, centerY);
+  if (enteredZoneIndex >= 0 && (enteredZoneIndex === draggedActor.zoneIndex
+    || topology.sharedEdge(zones[draggedActor.zoneIndex], zones[enteredZoneIndex]))) {
+    draggedActor.zoneIndex = enteredZoneIndex;
   }
 });
 
@@ -322,18 +433,28 @@ world.addEventListener('pointerdown', (event) => {
   if (!actor) return;
   draggedActor = actor;
   actor.dragging = true;
+  actor.route = [];
+  actor.transition = null;
   dragOffset = { x: event.clientX - actor.x, y: event.clientY - actor.y };
   element.setPointerCapture(event.pointerId);
   updateActorElement(actor);
 });
 
-world.addEventListener('pointerup', (event) => {
+function finishDrag(event) {
   if (!draggedActor) return;
-  draggedActor.dragging = false;
-  chooseTarget(draggedActor);
-  updateActorElement(draggedActor);
-  event.target.releasePointerCapture?.(event.pointerId);
+  const actor = draggedActor;
+  actor.dragging = false;
+  constrainActor(actor);
+  chooseTarget(actor);
+  updateActorElement(actor);
+  actor.element.releasePointerCapture?.(event.pointerId);
   draggedActor = null;
+}
+
+world.addEventListener('pointerup', finishDrag);
+world.addEventListener('pointercancel', finishDrag);
+world.addEventListener('lostpointercapture', (event) => {
+  if (draggedActor && event.target === draggedActor.element) finishDrag(event);
 });
 
 document.addEventListener('contextmenu', (event) => event.preventDefault());

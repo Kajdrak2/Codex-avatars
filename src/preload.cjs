@@ -11,6 +11,7 @@ function subscribe(channel, callback) {
 contextBridge.exposeInMainWorld('codexAvatars', {
   getBootstrap: () => ipcRenderer.invoke('avatars:get-settings-bootstrap'),
   updateSettings: (patch) => ipcRenderer.invoke('avatars:update-settings', patch),
+  previewAvatarSizes: (patch) => ipcRenderer.send('avatars:preview-avatar-sizes', patch),
   setLaunchAtLogin: (value) => ipcRenderer.invoke('avatars:set-launch-at-login', Boolean(value)),
   installHooks: () => ipcRenderer.invoke('avatars:install-hooks'),
   uninstallHooks: () => ipcRenderer.invoke('avatars:uninstall-hooks'),

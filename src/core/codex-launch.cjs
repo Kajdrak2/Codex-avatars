@@ -34,24 +34,34 @@ function buildAvatarPrompt(value, language = 'en') {
     .map(([key, label]) => `- ${label}: ${brief[key]}`)
     .join('\n');
 
+  const completionRequirement = french
+    ? "Ne t'arrete pas apres l'assemblage ou la validation structurelle. Termine les trois revues de directions a l'aveugle et le controle visuel final, puis installe ensemble pet.json et spritesheet.webp sous %USERPROFILE%\\.codex\\pets\\<pet-id> avant de declarer la reussite."
+    : 'Do not stop after atlas assembly or structural validation. Complete the three blind direction reviews and final visual QA, then install pet.json and spritesheet.webp together under %USERPROFILE%\\.codex\\pets\\<pet-id> before reporting success.';
+
   if (french) {
     return [
-      'Utilise $create-codex-avatar pour créer puis installer un avatar animé Codex Pet v2 soigné dans ma bibliothèque locale Codex Avatars.',
+      'Utilise $create-codex-avatar et invoque explicitement $hatch-pet pour créer puis installer un avatar animé Codex Pet v2 soigné dans ma bibliothèque locale Codex Avatars.',
       '',
       'Brief du personnage :',
       details,
+      completionRequirement,
       '',
-      'Suis le workflow hatch-pet complet : les 9 lignes d’animation, les 16 directions de regard, la validation déterministe de l’atlas 1536 × 2288 et le contrôle visuel final. Demande-moi uniquement les informations réellement manquantes.',
+      'Avant tout script Python ou validateur, appelle load_workspace_dependencies, utilise le chemin Python exact qu’il retourne et vérifie que Pillow peut être importé. N’utilise jamais la commande Python système comme solution de repli.',
+      '',
+      'Suis le workflow $hatch-pet complet : les 9 lignes d’animation, les 16 directions de regard, la validation déterministe de l’atlas 1536 × 2288 et le contrôle visuel final. Si le runtime fourni est temporairement indisponible, arrête-toi sans créer de fichiers incomplets et conserve un point de reprise clair. Demande-moi uniquement les informations réellement manquantes.',
     ].join('\n');
   }
 
   return [
-    'Use $create-codex-avatar to create and install a polished animated Codex Pet v2 avatar in my local Codex Avatars library.',
+    'Use $create-codex-avatar and explicitly invoke $hatch-pet to create and install a polished animated Codex Pet v2 avatar in my local Codex Avatars library.',
     '',
     'Character brief:',
     details,
+    completionRequirement,
     '',
-    'Follow the complete hatch-pet workflow: all 9 animation rows, 16 look directions, deterministic 1536 × 2288 atlas validation, and final visual QA. Ask only for information that is genuinely missing.',
+    'Before running any Python script or validator, call load_workspace_dependencies, use the exact Python path it returns, and verify that Pillow imports successfully. Never fall back to the system Python command.',
+    '',
+    'Follow the complete $hatch-pet workflow: all 9 animation rows, 16 look directions, deterministic 1536 × 2288 atlas validation, and final visual QA. If the bundled runtime is temporarily unavailable, stop without creating incomplete files and leave a clear resume point. Ask only for information that is genuinely missing.',
   ].join('\n');
 }
 

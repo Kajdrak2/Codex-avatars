@@ -15,8 +15,9 @@ test('normalizes unsafe or out-of-range settings', () => {
   });
   assert.equal(settings.mainAvatarSize, 180);
   assert.equal(settings.subagentAvatarSize, 180);
-  assert.equal(settings.schemaVersion, 6);
+  assert.equal(settings.schemaVersion, 7);
   assert.equal(settings.language, 'en');
+  assert.equal(settings.overlayEnabled, true);
   assert.equal(settings.showAgentDetails, true);
   assert.equal(settings.showDormantAgents, false);
   assert.equal(settings.onboardingCompleted, false);
@@ -35,12 +36,13 @@ test('persists a deep zone patch atomically', async () => {
   const filePath = path.join(directory, 'settings.json');
   const store = new SettingsStore(filePath);
   await store.load();
-  await store.update({ zone: { mode: 'displays', displayIds: ['2'] }, passive: false });
+  await store.update({ zone: { mode: 'displays', displayIds: ['2'] }, passive: false, overlayEnabled: false });
   await store.update({ mainAvatarSize: 132, subagentAvatarSize: 96 });
 
   const reloaded = new SettingsStore(filePath);
   const settings = await reloaded.load();
   assert.equal(settings.passive, false);
+  assert.equal(settings.overlayEnabled, false);
   assert.equal(settings.zone.mode, 'displays');
   assert.deepEqual(settings.zone.displayIds, ['2']);
   assert.equal(settings.mainAvatarSize, 132);

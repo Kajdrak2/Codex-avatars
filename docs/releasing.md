@@ -28,9 +28,9 @@ Confirm that `dist/win-unpacked/resources/integration` contains the marketplace 
 ## Publish through GitHub Actions
 
 ```powershell
-git tag v0.4.2
+git tag v0.4.4
 git push origin main
-git push origin v0.4.2
+git push origin v0.4.4
 ```
 
 The tag runs tests, builds the self-contained NSIS installer, creates a source/plugin zip with `git archive`, generates SHA-256 checksums, uploads the workflow artifact, and attaches both distribution forms to the GitHub Release.

@@ -2,7 +2,7 @@
 
 Codex Avatars donne un compagnon animé indépendant à la tâche principale et à chaque sous-agent Codex. Les personnages utilisent le format natif des Pets Codex v2 et se déplacent directement sur un ou plusieurs écrans, sans dock, panneau coloré ni fond visible.
 
-> État du projet : la version `0.4.2` fournit un installeur Windows autonome, un paquet plugin prêt pour Git, le partage portable des Pets, l’affichage borné des agents dormants et l’actualisation immédiate des titres. Aucun dépôt distant ni binaire signé n’est encore publié depuis ce checkout.
+> État du projet : la version `0.4.5` fournit un installeur Windows autonome, un paquet plugin prêt pour Git, des déplacements et glisser-déposer multi-écrans suivant la disposition Windows, le réglage des tailles en direct, le partage portable des Pets, des aperçus fiables dans l’exécutable et une fin de création Hatch Pet explicite. Aucun dépôt distant ni binaire signé n’est encore publié depuis ce checkout.
 
 ## Ce qui est déjà pris en charge
 
@@ -11,14 +11,16 @@ Codex Avatars donne un compagnon animé indépendant à la tâche principale et 
 - Animations Pets Codex v2 pour le déplacement, le travail, l’attente et la fin de tâche.
 - Choix des avatars actifs depuis la bibliothèque locale `~/.codex/pets`.
 - Détection automatique d’un nouvel avatar créé dans Work ou Codex.
-- Zone de déplacement sur tous les écrans, une sélection d’écrans ou un rectangle personnalisé.
+- Déplacement selon la disposition réelle des écrans Windows, en franchissant seulement des bords communs et les écrans intermédiaires.
 - Sélection visuelle de la zone personnalisée directement sur le bureau, comme une capture d’écran.
 - Titre de chaque tâche Codex principale et nom réel de chaque sous-tâche de collaboration, avec modèle et effort affichables séparément.
 - Tailles réglables indépendamment pour les agents principaux et les sous-agents.
+- Aperçu immédiat des deux tailles pendant le déplacement des curseurs.
 - Affichage facultatif des agents récemment au repos ou terminés sous forme de Pets endormis et immobiles pendant 30 minutes maximum.
 - Formulaire de création personnalisé ouvrant une tâche Codex avec le prompt déjà préparé.
 - Import et partage de packages `.codexpet` validés depuis la galerie locale.
 - Mode passif avec trois portes de sortie permanentes : réglages, icône de notification Windows et `Ctrl+Alt+A`.
+- Bouton pour masquer ou réafficher tous les avatars depuis les réglages ou l’icône de notification, sans fermer le compagnon.
 - Démarrage automatique au premier événement de session Codex ; démarrage avec Windows disponible en secours.
 - Transport local et limité à des métadonnées autorisées.
 
@@ -30,7 +32,7 @@ Le dessin sur le bureau est donc assuré par un petit processus Electron local. 
 
 ## Installation simple — recommandée
 
-1. Télécharge `Codex Avatars-Setup-0.4.2.exe` depuis la release GitHub.
+1. Télécharge `Codex Avatars-Setup-0.4.4.exe` depuis la release GitHub.
 2. Ouvre l’installeur et termine l’assistant.
 3. Dans la page Codex qui s’ouvre, installe **Codex Avatars** et vérifie ses hooks.
 
@@ -69,9 +71,10 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 -WhatIf
 L’overlay n’a volontairement aucun panneau. Ouvre les réglages depuis l’icône **Codex Avatars** dans la zone de notification Windows.
 
 - **Mode passif** : tous les clics traversent l’overlay. `Ctrl+Alt+A` permet toujours de le basculer.
+- **Désactiver les avatars** : masque l’overlay tout en gardant le processus et l’état des agents prêts ; le même bouton ou l’action de zone de notification le restaure immédiatement.
 - **Mode interactif** : les zones des avatars deviennent saisissables et les personnages peuvent être déplacés.
 - **Avatars actifs** : chaque Pet peut être activé ou désactivé ; les agents sont distribués de façon déterministe entre les choix actifs.
-- **Zone** : sélectionne tous les écrans, coche plusieurs moniteurs ou trace directement un rectangle sur le bureau.
+- **Zone** : sélectionne tous les écrans, coche plusieurs moniteurs ou trace directement un rectangle sur le bureau ; fais glisser un avatar par un bord commun pour le déposer sur l’écran voisin.
 - **Tailles principale/sous-agent, noms, modèle/effort, agents dormants et mouvement** : les options s’appliquent immédiatement et sont conservées localement.
 - **Démo** : le même bouton la lance et l’arrête, puis supprime tous les agents synthétiques.
 
@@ -79,7 +82,7 @@ L’overlay n’a volontairement aucun panneau. Ouvre les réglages depuis l’i
 
 Dans les réglages, ouvre le studio de personnage, décris l’apparence, le style, la personnalité, les couleurs, les accessoires et ce qu’il faut éviter, puis choisis **Créer dans Codex**. L’application ouvre `codex://threads/new` avec le prompt prêt. Ce préremplissage étant un détail de l’application de bureau qui n’est pas encore documenté comme contrat public, le même prompt n’est copié qu’en solution de secours si l’ouverture échoue.
 
-La skill délègue au workflow officiel `hatch-pet`, produit un atlas v2 validé de `1536x2288`, puis installe `pet.json` et `spritesheet.webp` ensemble sous `~/.codex/pets/<pet-id>`. Le renderer actualise cette bibliothèque toutes les cinq secondes et active les nouveaux Pets lorsque l’option correspondante est cochée.
+La tâche générée invoque explicitement `$hatch-pet`, résout le Python fourni par le runtime Codex avant tout script, vérifie Pillow, produit un atlas v2 validé de `1536x2288`, puis installe `pet.json` et `spritesheet.webp` ensemble sous `~/.codex/pets/<pet-id>`. Le renderer actualise cette bibliothèque toutes les cinq secondes et active les nouveaux Pets lorsque l’option correspondante est cochée.
 
 Le même avatar reste compatible avec le sélecteur **Réglages > Pets** de l’application de bureau ChatGPT.
 
