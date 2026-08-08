@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Repo marketplace, Codex lifecycle plugin hooks, and a `create-codex-avatar` skill.
+- All-display, selected-display, and custom-rectangle roaming zones.
+- Native Codex Pet v2 discovery, selection, animation, and hot refresh.
+- Source-based setup that does not require a bespoke application installer.
+
+### Changed
+
+- Split the alpha-zero sprite overlay from the normal settings window.
+- Added permanent Windows tray controls and passive-mode recovery.
+- Start the local companion from the first Codex lifecycle event when it is absent.
+- Expanded validation to 21 automated tests plus overlay and settings captures.
+
 ## [0.1.0] - 2026-08-06
 
 ### Added

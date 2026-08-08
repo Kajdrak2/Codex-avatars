@@ -1,7 +1,7 @@
 {
   "name": "codex-avatars",
-  "version": "0.1.0",
-  "description": "A tiny always-on-top desktop world where every Codex subagent gets its own avatar.",
+  "version": "0.2.0",
+  "description": "Independent Codex Pet avatars roaming invisibly across one or more Windows displays.",
   "main": "src/main.cjs",
   "type": "commonjs",
   "private": true,
@@ -12,10 +12,13 @@
   },
   "scripts": {
     "start": "electron .",
+    "start:background": "electron . --background",
     "dev": "electron . --dev",
     "test": "node --test",
     "demo": "node scripts/send-demo-event.mjs",
     "preview": "electron . --capture=artifacts/preview.png",
+    "preview:settings": "electron . --capture-settings=artifacts/settings.png",
+    "setup": "powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File ./install.ps1",
     "icon:render": "electron scripts/render-icon.cjs",
     "hooks:install": "node scripts/manage-hooks.mjs install",
     "hooks:status": "node scripts/manage-hooks.mjs status",

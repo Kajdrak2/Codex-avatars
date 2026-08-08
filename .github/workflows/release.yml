@@ -1,4 +1,4 @@
-name: Release Windows installer
+name: Release plugin and Windows companion
 
 on:
   push:
@@ -23,10 +23,15 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run dist
+      - name: Package Git and plugin bundle
+        shell: pwsh
+        run: |
+          $name = "Codex-Avatars-Plugin-$env:GITHUB_REF_NAME.zip"
+          git archive --format=zip --output="dist/$name" HEAD
       - name: Generate checksums
         shell: pwsh
         run: |
-          Get-ChildItem dist/*.exe | ForEach-Object {
+          Get-ChildItem dist/*.exe, dist/*.zip | ForEach-Object {
             $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash.ToLowerInvariant()
             "$hash  $($_.Name)"
           } | Set-Content -Encoding ascii dist/SHA256SUMS.txt
@@ -35,6 +40,7 @@ jobs:
           name: codex-avatars-windows
           path: |
             dist/*.exe
+            dist/*.zip
             dist/*.yml
             dist/*.blockmap
             dist/SHA256SUMS.txt
@@ -43,6 +49,7 @@ jobs:
         with:
           files: |
             dist/*.exe
+            dist/*.zip
             dist/*.yml
             dist/*.blockmap
             dist/SHA256SUMS.txt

@@ -1,0 +1,36 @@
+{
+  "name": "codex-avatars",
+  "version": "0.2.0",
+  "description": "Give every Codex agent an independent animated desktop companion.",
+  "author": {
+    "name": "Codex Avatars contributors"
+  },
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "avatars",
+    "pets",
+    "subagents",
+    "overlay"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex Avatars",
+    "shortDescription": "Animated companions for every Codex agent",
+    "longDescription": "Adds trusted Codex lifecycle hooks, a workflow for creating compatible Pet v2 avatars, and controls for the local system overlay companion.",
+    "developerName": "Codex Avatars contributors",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Create a new animated avatar for Codex Avatars.",
+      "Help me configure which avatars appear on my screens.",
+      "Check my Codex Avatars integration."
+    ],
+    "brandColor": "#45D7A8",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/icon.png"
+  }
+}

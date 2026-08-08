@@ -1,35 +1,72 @@
 # Architecture
 
-## Design goals
+## Product boundary
 
-1. Represent every documented Codex subagent identity independently.
-2. Keep all event transport local and metadata-only.
-3. Never block or steer a Codex run.
-4. Preserve existing Codex configuration.
-5. Offer a one-installer path for non-developers and a conventional Git workflow for contributors.
+Codex Avatars is deliberately hybrid:
 
-## Components
+- the **Codex plugin** supplies lifecycle hooks and the `create-codex-avatar` workflow;
+- the **local renderer companion** owns the operating-system overlay, tray controls, settings, and sprite animation.
 
-### Codex lifecycle hook
+Plugin UI is hosted inside ChatGPT. It cannot create a global always-on-top window, so the renderer is the smallest honest system component that satisfies desktop roaming.
 
-`scripts/codex-hook.ps1` reads the hook JSON object from standard input, copies only explicitly allowed fields, and sends one compact JSON line to the local named pipe. It exits with code zero even when the overlay is not running.
+## Data flow
 
-### Local event bridge
+```text
+Codex lifecycle
+      |
+      | plugin hook; allowlisted metadata only
+      v
+PowerShell bridge -- starts renderer when absent
+      |
+      | local named pipe: codex-avatars-v1
+      v
+Normalizer + agent store
+      |
+      +-------------> normal settings window + Windows tray
+      |
+      v
+fully transparent virtual-desktop BrowserWindow
+      |
+      v
+independent Codex Pet v2 sprite actors
+```
 
-`src/core/pipe-server.cjs` owns the named pipe. It limits each connection to 64 KiB and ignores malformed messages. There is no TCP listener and no remote service.
+## Plugin package
 
-### Normalizer and store
+The repo marketplace lives at `.agents/plugins/marketplace.json`; the plugin source lives under `plugins/codex-avatars/`.
 
-The normalizer converts Codex event names into a small internal protocol. The store keeps sessions and avatars independent from Electron, which makes lifecycle behavior straightforward to test.
+- `hooks/hooks.json` subscribes to session, permission, prompt, stop, and subagent lifecycle events.
+- `scripts/codex-hook.ps1` forwards only explicit fields. On the first event it can start either the source renderer, a configured packaged companion, or the standard per-user install.
+- `skills/create-codex-avatar/` routes avatar creation through `hatch-pet` and the shared Codex Pets directory.
 
-### Electron shell
+Codex copies installed local plugins into its cache. `install.ps1` therefore stores `CODEX_AVATARS_DEV_ROOT` as a user environment variable so a cached hook can still find a cloned source renderer. Packaged installs instead resolve the companion executable from the install directory.
 
-The Electron main process owns the transparent always-on-top window, the pipe server, global shortcut, launch-at-login option, and hook setup. The sandboxed renderer receives immutable snapshots through a narrow preload API.
+## Overlay and control surface
+
+The overlay BrowserWindow covers the resolved union of selected work areas, has an alpha-zero background, and renders only actor nodes. It is separate from the normal settings window.
+
+In passive mode the entire window ignores mouse input. The settings window, tray menu, and global `Ctrl+Alt+A` shortcut are outside that input surface, so passive mode cannot lock the user out. In interactive mode forwarded pointer movement enables input only while the pointer is over an avatar; transparent desktop regions continue to pass clicks through.
+
+The roaming resolver supports:
+
+- all displays;
+- an explicit set of display ids;
+- one clamped rectangle in virtual-screen coordinates, including negative monitor coordinates.
+
+## Avatar library
+
+`src/core/avatar-library.cjs` scans the shared `${CODEX_HOME}/pets` directory first and optional bundled assets second. It validates package paths and WebP dimensions before exposing an asset through the private `codex-avatar:` protocol.
+
+V2 sheets use 8 columns, 11 rows, `192x208` cells, and a final size of `1536x2288`. The overlay maps lifecycle state and horizontal velocity to the native idle, directional-running, waving, waiting, working, and review rows.
+
+Personal Pet binaries are never copied into Git. A watcher refreshes the library every five seconds and can automatically enable newly created avatars.
+
+## Persistence and privacy
+
+Renderer preferences are stored under Electron's per-user application data directory. No prompt or transcript data is persisted.
+
+The bridge accepts only event name, session id, turn id, working directory, agent id, agent type, and tool name. The named-pipe server limits payload size, ignores malformed data, and never exposes a TCP port.
 
 ## Event accuracy
 
-`SubagentStart` and `SubagentStop` include `agent_id` and `agent_type`, so the app can create and retire independent avatars reliably. The documented `PreToolUse` and `PostToolUse` inputs do not include an individual subagent identifier. The first release does not attribute those tool events to a specific avatar.
-
-## Future adapters
-
-The renderer consumes only the internal session-and-agent snapshot. A later Codex App Server adapter can provide richer thread hierarchy and activity data while leaving the UI and hook adapter intact.
+`SubagentStart` and `SubagentStop` include `agent_id` and `agent_type`, which is enough to create and retire independent actors. Tool-use hook payloads do not currently expose an individual subagent id, so the renderer does not claim per-agent command or file attribution.

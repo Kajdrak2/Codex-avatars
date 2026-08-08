@@ -1,0 +1,20 @@
+{
+  "name": "codex-avatars-local",
+  "interface": {
+    "displayName": "Codex Avatars Local"
+  },
+  "plugins": [
+    {
+      "name": "codex-avatars",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex-avatars"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

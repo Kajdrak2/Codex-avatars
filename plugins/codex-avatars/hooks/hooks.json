@@ -1,0 +1,84 @@
+{
+  "description": "Start Codex Avatars when needed and forward privacy-minimized lifecycle metadata.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/scripts/codex-hook.ps1\" -Marker \"CODEX_AVATARS_HOOK_V1\" -DevRoot \"${PLUGIN_ROOT}/../..\" -PluginData \"${PLUGIN_DATA}\"",
+            "timeout": 5,
+            "statusMessage": "Waking Codex Avatars"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/scripts/codex-hook.ps1\" -Marker \"CODEX_AVATARS_HOOK_V1\" -DevRoot \"${PLUGIN_ROOT}/../..\" -PluginData \"${PLUGIN_DATA}\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/scripts/codex-hook.ps1\" -Marker \"CODEX_AVATARS_HOOK_V1\" -DevRoot \"${PLUGIN_ROOT}/../..\" -PluginData \"${PLUGIN_DATA}\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/scripts/codex-hook.ps1\" -Marker \"CODEX_AVATARS_HOOK_V1\" -DevRoot \"${PLUGIN_ROOT}/../..\" -PluginData \"${PLUGIN_DATA}\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/scripts/codex-hook.ps1\" -Marker \"CODEX_AVATARS_HOOK_V1\" -DevRoot \"${PLUGIN_ROOT}/../..\" -PluginData \"${PLUGIN_DATA}\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/scripts/codex-hook.ps1\" -Marker \"CODEX_AVATARS_HOOK_V1\" -DevRoot \"${PLUGIN_ROOT}/../..\" -PluginData \"${PLUGIN_DATA}\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/scripts/codex-hook.ps1\" -Marker \"CODEX_AVATARS_HOOK_V1\" -DevRoot \"${PLUGIN_ROOT}/../..\" -PluginData \"${PLUGIN_DATA}\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

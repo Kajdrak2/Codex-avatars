@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Codex Avatar"
+  short_description: "Create a polished Codex Avatars companion"
+  default_prompt: "Use $create-codex-avatar to create a new animated companion for Codex Avatars."

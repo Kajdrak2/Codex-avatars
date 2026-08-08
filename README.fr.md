@@ -1,98 +1,103 @@
 # Codex Avatars
 
-Codex Avatars transforme l’activité multi-agent de Codex en une petite équipe animée sur le bureau Windows. Chaque sous-agent possède son propre personnage et évolue indépendamment.
+Codex Avatars donne un compagnon animé indépendant à la tâche principale et à chaque sous-agent Codex. Les personnages utilisent le format natif des Pets Codex v2 et se déplacent directement sur un ou plusieurs écrans, sans dock, panneau coloré ni fond visible.
 
-> Aperçu initial : le prototype local fonctionne, mais la première version publique n’est pas encore signée ni publiée.
+> État du projet : la version `0.2.0` fonctionne localement sous Windows et le paquet plugin est prêt pour un marketplace Git. Aucun dépôt distant ni binaire signé n’est encore publié depuis ce checkout.
 
-## Ce que l’outil affiche
+## Ce qui est déjà pris en charge
 
-- Un avatar pour la session Codex principale.
-- Un avatar indépendant pour chaque `agent_id` annoncé par `SubagentStart`.
-- Des animations de travail, d’attente, d’intervention, de réussite et de sortie.
-- Des groupes séparés lorsque plusieurs projets Codex sont actifs.
-- Un mode passif traversable par les clics, activable avec `Ctrl+Alt+A`.
+- Overlay réellement invisible : seuls les avatars et leurs étiquettes sont dessinés.
+- Un personnage distinct par `agent_id`, y compris l’agent principal.
+- Animations Pets Codex v2 pour le déplacement, le travail, l’attente et la fin de tâche.
+- Choix des avatars actifs depuis la bibliothèque locale `~/.codex/pets`.
+- Détection automatique d’un nouvel avatar créé dans Work ou Codex.
+- Zone de déplacement sur tous les écrans, une sélection d’écrans ou un rectangle personnalisé.
+- Mode passif avec trois portes de sortie permanentes : réglages, icône de notification Windows et `Ctrl+Alt+A`.
+- Démarrage automatique au premier événement de session Codex ; démarrage avec Windows disponible en secours.
+- Transport local et limité à des métadonnées autorisées.
 
-Codex fournit un identifiant stable dans les hooks de cycle de vie des sous-agents. En revanche, la documentation des hooks d’outils ne fournit pas d’`agent_id` individuel. Codex Avatars représente donc fidèlement le cycle de vie de chaque agent sans inventer l’auteur d’une commande ou d’une modification.
+## Pourquoi il reste un petit renderer local
 
-## Vie privée
+Le plugin assure l’intégration à ChatGPT/Codex : hooks, installation, commandes et création d’avatars. Une interface de plugin s’exécute toutefois dans une iframe à l’intérieur de ChatGPT ; elle ne peut pas créer une fenêtre système toujours au-dessus des autres applications.
 
-Tout reste sur l’ordinateur. Le hook transmet uniquement quelques métadonnées autorisées via un canal nommé Windows local. Les prompts, arguments d’outils, sorties de commandes, transcriptions, fichiers source et messages de l’assistant sont volontairement exclus.
+Le dessin sur le bureau est donc assuré par un petit processus Electron local. Le parcours Git ci-dessous ne distribue pas d’exécutable Codex Avatars personnalisé : il utilise le runtime Electron installé dans `node_modules`. Un installeur `.exe` peut rester proposé plus tard comme solution facultative pour les personnes qui ne souhaitent pas installer Node.js.
 
-## Installer sous Windows
+## Installation depuis Git
 
-Pour une version publiée, aucun outil de développement n’est nécessaire :
-
-1. Télécharge `Codex Avatars-Setup-<version>.exe` depuis les Releases GitHub.
-2. Lance l’installeur puis Codex Avatars.
-3. Ouvre **Réglages** et sélectionne **Activer** sous Intégration Codex.
-4. Vérifie et autorise le hook dans Codex lorsque cela est demandé, puis ouvre une nouvelle tâche.
-
-C’est tout le parcours nécessaire pour un utilisateur. L’aperçu local actuel n’est pas signé ; une version publique devra être signée afin d’éviter les avertissements Windows inutiles.
-
-## Lancer depuis les sources
-
-Prérequis :
-
-- Windows 10 ou 11 ;
-- Node.js 22 ou plus récent ;
-- une version actuelle de Codex avec les hooks de cycle de vie actifs.
+Prérequis : Windows 10/11, Node.js 22 ou plus récent et une version actuelle de l’application de bureau ChatGPT avec Codex.
 
 ```powershell
 git clone <adresse-du-depot> codex-avatars
 cd codex-avatars
-npm install
-npm start
+powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-Dans l’overlay, ouvre **Réglages**, puis sélectionne **Activer** sous Intégration Codex. Les entrées existantes de `~/.codex/hooks.json` sont conservées et une sauvegarde horodatée est créée avant chaque modification.
+Le script :
 
-Le programme de désinstallation Windows retire uniquement les hooks de Codex Avatars avant d’effacer l’application. Tous les autres hooks personnels restent intacts.
+1. installe exactement les dépendances verrouillées avec `npm ci` ;
+2. déclare ce checkout comme marketplace Codex local ;
+3. tente d’installer le plugin `codex-avatars@codex-avatars-local` ;
+4. enregistre le chemin du renderer source pour les futurs démarrages ;
+5. lance le compagnon en arrière-plan.
 
-Codex peut demander de vérifier et d’autoriser la nouvelle définition des hooks. Il s’agit d’une protection normale. Redémarre Codex ou ouvre une nouvelle tâche après l’activation.
+Ensuite, redémarre ChatGPT, ouvre **Plugins**, choisis **Codex Avatars Local**, active **Codex Avatars** et vérifie ses hooks lorsque Codex le demande. Les hooks non gérés sont volontairement soumis à cette validation de confiance.
 
-## Commandes utiles
+Prévisualiser sans rien modifier :
 
 ```powershell
-npm test
-npm run demo
-npm run hooks:status
-npm run hooks:install
-npm run hooks:uninstall
-npm run dist
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -WhatIf
 ```
 
-`npm run demo` envoie des événements fictifs à un overlay déjà lancé. Les commandes de gestion des hooks sont des alternatives facultatives aux boutons de l’application.
+## Utilisation
 
-## Architecture
+L’overlay n’a volontairement aucun panneau. Ouvre les réglages depuis l’icône **Codex Avatars** dans la zone de notification Windows.
+
+- **Mode passif** : tous les clics traversent l’overlay. `Ctrl+Alt+A` permet toujours de le basculer.
+- **Mode interactif** : les zones des avatars deviennent saisissables et les personnages peuvent être déplacés.
+- **Avatars actifs** : chaque Pet peut être activé ou désactivé ; les agents sont distribués de façon déterministe entre les choix actifs.
+- **Zone** : sélectionne tous les écrans, coche plusieurs moniteurs ou saisis `X`, `Y`, largeur et hauteur.
+- **Taille, noms et mouvement** : les options s’appliquent immédiatement et sont conservées localement.
+
+## Créer un avatar depuis Work ou Codex
+
+Après installation du plugin, démarre une nouvelle tâche avec :
 
 ```text
-Hooks de cycle de vie Codex
-            |
-            | métadonnées autorisées uniquement
-            v
-Canal Windows local : codex-avatars-v1
-            |
-            v
-Overlay Electron + registre d’agents en mémoire
+Utilise $create-codex-avatar pour créer un nouvel avatar Codex Avatars.
 ```
 
-La première version utilise les événements officiellement documentés `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `Stop`, `PermissionRequest`, `SubagentStart` et `SubagentStop`. Un adaptateur App Server plus riche pourra être ajouté ensuite sans modifier le protocole de l’interface.
+La skill délègue au workflow officiel `hatch-pet`, produit un atlas v2 validé de `1536x2288`, puis installe `pet.json` et `spritesheet.webp` ensemble sous `~/.codex/pets/<pet-id>`. Le renderer actualise cette bibliothèque toutes les cinq secondes et active les nouveaux Pets lorsque l’option correspondante est cochée.
 
-## Construire l’installeur Windows
+Le même avatar reste compatible avec le sélecteur **Réglages > Pets** de l’application de bureau ChatGPT.
+
+## Vie privée
+
+Le hook ne copie que : nom de l’événement, identifiants de session/tour/agent, type d’agent, dossier de travail et nom d’outil lorsqu’il existe. Il exclut les prompts, arguments d’outils, sorties de commandes, transcriptions, messages, contenus de fichiers et secrets.
+
+Les événements passent par le canal local `codex-avatars-v1`. Aucun serveur TCP ni service distant n’est utilisé.
+
+## Commandes de développement
 
 ```powershell
 npm ci
 npm test
+npm start
+npm run start:background
+npm run preview
+npm run preview:settings
+npm run demo
 npm run dist
 ```
 
-L’installeur NSIS non signé est créé dans `dist/`. Les versions publiques devront être signées avant une diffusion large.
+`npm run dist` construit encore l’installeur NSIS facultatif. La release GitHub joint également une archive source/plugin installable depuis Git.
 
-## Contribution et sécurité
+## Limites actuelles
 
-Consulte [CONTRIBUTING.md](CONTRIBUTING.md) et [SECURITY.md](SECURITY.md).
+- Les hooks Codex donnent un `agent_id` à `SubagentStart` et `SubagentStop`, mais les hooks d’outils n’identifient pas individuellement leur sous-agent. L’outil n’invente donc pas l’auteur d’une commande.
+- Un plugin seul ne peut pas dessiner au-dessus de tout Windows ; le renderer local est une contrainte du système, pas une intégration simulée.
+- La version publique devra être signée si l’installeur Windows facultatif est diffusé largement.
 
-Les mainteneurs peuvent suivre [docs/releasing.md](docs/releasing.md) pour publier une version GitHub.
+Consulte [docs/architecture.md](docs/architecture.md), [CONTRIBUTING.md](CONTRIBUTING.md) et [SECURITY.md](SECURITY.md).
 
 ## Licence
 

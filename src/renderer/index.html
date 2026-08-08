@@ -3,71 +3,144 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: codex-avatar:; connect-src 'none'">
     <title>Codex Avatars</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
-    <main class="dock" aria-live="polite">
-      <header class="toolbar">
-        <div class="brand">
-          <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
-          <span>Codex Avatars</span>
-          <span id="version" class="version"></span>
-        </div>
-        <div class="toolbar-actions no-drag">
-          <span id="connection-pill" class="pill pill-offline"></span>
-          <button id="demo-button" class="icon-button" type="button"></button>
-          <button id="settings-button" class="icon-button" type="button" aria-expanded="false" aria-controls="settings-panel">⚙</button>
-          <button id="quit-button" class="icon-button danger" type="button" aria-label="Quit">×</button>
-        </div>
-      </header>
-
-      <section id="world" class="world"></section>
-
-      <section id="empty-state" class="empty-state">
-        <div class="sleeping-avatar" aria-hidden="true">
-          <span class="sleep-z z-one">z</span>
-          <span class="sleep-z z-two">z</span>
-          <span class="sleep-body"><i></i><i></i></span>
-        </div>
+    <header class="app-header">
+      <div class="brand-lockup">
+        <img src="../../assets/icon.png" width="42" height="42" alt="">
         <div>
-          <strong id="empty-title"></strong>
-          <span id="empty-copy"></span>
+          <h1>Codex Avatars</h1>
+          <p id="header-subtitle"></p>
         </div>
-        <button id="empty-install" class="primary-button no-drag" type="button"></button>
-      </section>
+      </div>
+      <div class="header-status">
+        <span id="active-count" class="status-pill"></span>
+        <span id="version" class="version"></span>
+      </div>
+    </header>
 
-      <aside id="settings-panel" class="settings-panel no-drag" hidden>
-        <div class="settings-heading">
-          <strong id="settings-title"></strong>
-          <button id="settings-close" class="icon-button" type="button" aria-label="Close">×</button>
-        </div>
-        <div class="setting-row">
+    <main class="settings-layout">
+      <section class="panel control-panel">
+        <div class="section-heading">
           <div>
-            <strong id="integration-title"></strong>
-            <span id="integration-copy"></span>
+            <span class="eyebrow" id="control-eyebrow"></span>
+            <h2 id="control-title"></h2>
           </div>
-          <button id="integration-button" class="secondary-button" type="button"></button>
+          <span class="shortcut">Ctrl + Alt + A</span>
         </div>
-        <label class="setting-row toggle-row">
-          <span>
+
+        <label class="setting-card emphasis-card">
+          <span class="setting-copy">
             <strong id="passive-title"></strong>
             <small id="passive-copy"></small>
           </span>
-          <input id="passive-toggle" type="checkbox">
+          <input id="passive-toggle" class="switch" type="checkbox">
         </label>
-        <label class="setting-row toggle-row">
-          <span>
+
+        <div class="setting-card">
+          <span class="setting-copy">
             <strong id="startup-title"></strong>
             <small id="startup-copy"></small>
           </span>
-          <input id="startup-toggle" type="checkbox">
-        </label>
-        <p id="settings-message" class="settings-message" role="status"></p>
-      </aside>
+          <input id="startup-toggle" class="switch" type="checkbox">
+        </div>
+      </section>
+
+      <section class="panel avatar-panel">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow" id="avatars-eyebrow"></span>
+            <h2 id="avatars-title"></h2>
+            <p id="avatars-copy"></p>
+          </div>
+          <button id="refresh-avatars" class="quiet-button" type="button"></button>
+        </div>
+
+        <div id="avatar-grid" class="avatar-grid"></div>
+        <div id="avatar-empty" class="empty-library" hidden>
+          <strong id="avatar-empty-title"></strong>
+          <span id="avatar-empty-copy"></span>
+        </div>
+
+        <div class="avatar-options">
+          <label class="range-setting">
+            <span id="avatar-size-title"></span>
+            <input id="avatar-size" type="range" min="72" max="180" step="2">
+            <output id="avatar-size-value"></output>
+          </label>
+          <label class="compact-toggle">
+            <input id="labels-toggle" type="checkbox">
+            <span id="labels-title"></span>
+          </label>
+          <label class="compact-toggle">
+            <input id="new-avatars-toggle" type="checkbox">
+            <span id="new-avatars-title"></span>
+          </label>
+          <label class="compact-toggle">
+            <input id="motion-toggle" type="checkbox">
+            <span id="motion-title"></span>
+          </label>
+        </div>
+
+        <div class="create-avatar-callout">
+          <div>
+            <strong id="create-title"></strong>
+            <span id="create-copy"></span>
+          </div>
+          <div class="button-row">
+            <button id="create-avatar" class="primary-button" type="button"></button>
+            <button id="open-pet-folder" class="quiet-button" type="button"></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel zone-panel">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow" id="zone-eyebrow"></span>
+            <h2 id="zone-title"></h2>
+            <p id="zone-copy"></p>
+          </div>
+        </div>
+
+        <div class="segmented-control" role="radiogroup">
+          <label><input type="radio" name="zone-mode" value="all"><span id="zone-all"></span></label>
+          <label><input type="radio" name="zone-mode" value="displays"><span id="zone-displays"></span></label>
+          <label><input type="radio" name="zone-mode" value="custom"><span id="zone-custom"></span></label>
+        </div>
+
+        <div id="display-list" class="display-list"></div>
+
+        <form id="custom-zone-form" class="custom-zone" hidden>
+          <label><span>X</span><input name="x" type="number" required></label>
+          <label><span>Y</span><input name="y" type="number" required></label>
+          <label><span id="width-label"></span><input name="width" type="number" min="160" required></label>
+          <label><span id="height-label"></span><input name="height" type="number" min="120" required></label>
+          <button id="apply-custom-zone" class="primary-button" type="submit"></button>
+        </form>
+      </section>
+
+      <section class="panel integration-panel">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow" id="integration-eyebrow"></span>
+            <h2 id="integration-title"></h2>
+            <p id="integration-copy"></p>
+          </div>
+          <span class="plugin-badge">Codex plugin</span>
+        </div>
+        <div class="integration-actions">
+          <button id="legacy-hooks-button" class="quiet-button" type="button"></button>
+          <button id="pets-docs-button" class="quiet-button" type="button"></button>
+          <button id="demo-button" class="primary-button" type="button"></button>
+        </div>
+      </section>
     </main>
 
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="./renderer.js"></script>
   </body>
 </html>

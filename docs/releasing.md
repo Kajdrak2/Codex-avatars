@@ -2,11 +2,12 @@
 
 ## Before the first public release
 
-1. Create an empty GitHub repository.
-2. Add it as the local `origin` remote.
-3. Configure Windows code-signing secrets for the release workflow when broad distribution begins.
-4. Replace any placeholder repository links in documentation.
-5. Confirm the version in `package.json` and `CHANGELOG.md`.
+1. Create the GitHub repository and add it as `origin`.
+2. Replace the generic clone URL in both READMEs with the real repository URL.
+3. Decide whether the primary distribution is the Git/plugin bundle, the universal plugin directory, or both.
+4. Configure Windows code-signing secrets before promoting the optional installer broadly.
+5. Confirm matching versions in `package.json`, `package-lock.json`, and `plugins/codex-avatars/.codex-plugin/plugin.json`.
+6. Review every bundled hook and ensure the trust prompt describes the final command hash.
 
 ## Local verification
 
@@ -15,21 +16,29 @@ npm ci
 npm test
 npm audit --omit=dev
 npm run preview
+npm run preview:settings
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -WhatIf
 npm run dist
 ```
 
-Test the unpacked executable at `dist/win-unpacked/Codex Avatars.exe`. Do not test hook merging against a real user configuration when a temporary `CODEX_HOME` directory will do.
+Also run the `skill-creator` quick validator on `plugins/codex-avatars/skills/create-codex-avatar` and the `plugin-creator` validator on `plugins/codex-avatars`.
+
+Test the optional unpacked executable at `dist/win-unpacked/Codex Avatars.exe`. Use a temporary `CODEX_HOME` for standalone hook merge tests; do not mutate a maintainer's real hook configuration during release validation.
 
 ## Publish through GitHub Actions
 
 ```powershell
-git tag v0.1.0
+git tag v0.2.0
 git push origin main
-git push origin v0.1.0
+git push origin v0.2.0
 ```
 
-The tag starts the Windows release workflow. It runs the test suite, creates the NSIS installer, generates `SHA256SUMS.txt`, uploads a workflow artifact, and attaches the installer files to a GitHub Release.
+The tag runs tests, builds the NSIS fallback, creates a source/plugin zip with `git archive`, generates SHA-256 checksums, uploads the workflow artifact, and attaches both distribution forms to the GitHub Release.
+
+## Marketplace and plugin directory
+
+The repo archive already contains `.agents/plugins/marketplace.json` and `plugins/codex-avatars/`. Test a tagged checkout as a fresh marketplace source before submission. Public plugin submission must not claim that iframe UI can render the operating-system overlay; the local companion requirement must remain explicit.
 
 ## Signing
 
-The current local preview is unsigned. Before promoting downloads to a broad audience, configure an Authenticode certificate through the supported electron-builder signing environment. Never commit a certificate or its password to Git.
+The current local preview is unsigned. Configure an Authenticode certificate through the supported electron-builder signing environment before broad Windows-installer distribution. Never commit a certificate or password.
