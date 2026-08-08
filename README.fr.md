@@ -2,7 +2,7 @@
 
 Codex Avatars donne un compagnon animé indépendant à la tâche principale et à chaque sous-agent Codex. Les personnages utilisent le format natif des Pets Codex v2 et se déplacent directement sur un ou plusieurs écrans, sans dock, panneau coloré ni fond visible.
 
-> État du projet : la version `0.4.5` fournit un installeur Windows autonome, un paquet plugin prêt pour Git, des déplacements et glisser-déposer multi-écrans suivant la disposition Windows, le réglage des tailles en direct, le partage portable des Pets, des aperçus fiables dans l’exécutable et une fin de création Hatch Pet explicite. Aucun dépôt distant ni binaire signé n’est encore publié depuis ce checkout.
+> État du projet : la version `0.6.7` est publiée sur GitHub avec un installeur Windows autonome, un paquet plugin prêt pour Git, des déplacements et glisser-déposer multi-écrans suivant la disposition Windows, le réglage des tailles en direct, le partage portable des Pets, des aperçus fiables dans l’exécutable et une fin de création Hatch Pet explicite. L’installeur n’est pas encore signé.
 
 ## Ce qui est déjà pris en charge
 
@@ -17,6 +17,7 @@ Codex Avatars donne un compagnon animé indépendant à la tâche principale et 
 - Tailles réglables indépendamment pour les agents principaux et les sous-agents.
 - Aperçu immédiat des deux tailles pendant le déplacement des curseurs.
 - Affichage facultatif des agents récemment au repos ou terminés sous forme de Pets endormis et immobiles pendant 30 minutes maximum.
+- Les événements de fin reçus en retard ne peuvent plus faire réapparaître un avatar endormi expiré.
 - Formulaire de création personnalisé ouvrant une tâche Codex avec le prompt déjà préparé.
 - Import et partage de packages `.codexpet` validés depuis la galerie locale.
 - Mode passif avec trois portes de sortie permanentes : réglages, icône de notification Windows et `Ctrl+Alt+A`.
@@ -32,13 +33,15 @@ Le dessin sur le bureau est donc assuré par un petit processus Electron local. 
 
 ## Installation simple — recommandée
 
-1. Télécharge `Codex Avatars-Setup-0.4.4.exe` depuis la release GitHub.
+1. Télécharge [Codex Avatars 0.6.7](https://github.com/Kajdrak2/Codex-avatars/releases/tag/v0.6.7), puis lance `Codex.Avatars-Setup-0.6.7.exe`.
 2. Ouvre l’installeur et termine l’assistant.
 3. Dans la page Codex qui s’ouvre, installe **Codex Avatars** et vérifie ses hooks.
 
 L’installeur place le compagnon dans le profil Windows, active immédiatement les hooks locaux, embarque le marketplace et le plugin, enregistre le chemin exact du renderer et ouvre les réglages. La confirmation finale dans Codex reste volontaire : un installeur ne doit pas accepter des hooks de sécurité à la place de l’utilisateur.
 
 La build locale actuelle n’est pas signée. Windows peut donc afficher SmartScreen tant qu’un certificat Authenticode n’est pas configuré pour la publication.
+
+Lorsqu’une release GitHub plus récente est disponible, le compagnon propose d’ouvrir sa page au démarrage. La mise à jour reste volontaire : il faut télécharger et lancer l’installeur normal, sans remplacement silencieux de l’exécutable.
 
 ## Installation depuis Git — développement
 

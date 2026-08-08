@@ -2,7 +2,7 @@
 
 Codex Avatars gives the main task and every Codex subagent an independent animated companion. Characters use the native Codex Pet v2 format and roam directly across one or more displays, with no dock, colored panel, or visible overlay background.
 
-> Project status: version `0.4.5` provides a self-contained Windows installer, a Git-ready plugin marketplace, topology-aware multi-screen roaming and dragging, live sizing, portable Pet sharing, reliable packaged Pet previews, and an explicit Hatch Pet completion handoff. This checkout does not yet have a configured remote or a published signed binary.
+> Project status: version `0.6.7` is published on GitHub with a self-contained Windows installer, a Git-ready plugin marketplace, topology-aware multi-screen roaming and dragging, live sizing, portable Pet sharing, reliable packaged Pet previews, and an explicit Hatch Pet completion handoff. The installer is not code-signed yet.
 
 [Lire en français](README.fr.md)
 
@@ -19,6 +19,7 @@ Codex Avatars gives the main task and every Codex subagent an independent animat
 - Size main agents and subagents independently.
 - Preview both avatar sizes live while dragging their controls.
 - Optionally keep recently idle or completed agents visible as stationary sleeping Pets for up to 30 minutes.
+- Delayed lifecycle end events cannot resurrect an expired sleeping avatar.
 - Create a tailored Pet from the settings form in a prefilled Codex task.
 - Import and share validated `.codexpet` packages through the local Pet Gallery.
 - Escape passive mode from settings, the Windows tray icon, or `Ctrl+Alt+A`.
@@ -34,13 +35,15 @@ A small local Electron process therefore draws the desktop sprites. The installe
 
 ## Simple installation — recommended
 
-1. Download `Codex Avatars-Setup-0.4.4.exe` from the GitHub release.
+1. Download [Codex Avatars 0.6.7](https://github.com/Kajdrak2/Codex-avatars/releases/tag/v0.6.7) and run `Codex.Avatars-Setup-0.6.7.exe`.
 2. Run the installer and finish the wizard.
 3. On the Codex plugin page that opens, install **Codex Avatars** and review its hooks.
 
 The installer places the companion in the Windows user profile, enables the local hooks immediately, bundles the marketplace and plugin, records the exact renderer path, and opens settings. The final Codex confirmation is intentional: an installer must not accept security-sensitive hooks on the user's behalf.
 
 The current local build is unsigned, so Windows may show SmartScreen until Authenticode signing is configured for publication.
+
+When a newer GitHub release is available, the companion offers to open its release page on startup. Updates remain user-mediated: download and run the normal installer rather than allowing a silent executable replacement.
 
 ## Install from Git — development
 
