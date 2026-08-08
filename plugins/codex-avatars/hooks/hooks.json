@@ -19,8 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/scripts/codex-hook.ps1\" -Marker \"CODEX_AVATARS_HOOK_V1\" -DevRoot \"${PLUGIN_ROOT}/../..\" -PluginData \"${PLUGIN_DATA}\"",
-            "timeout": 3
+            "command": "powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${PLUGIN_ROOT}/scripts/codex-hook.ps1\" -Marker \"CODEX_AVATARS_HOOK_V1\" -DevRoot \"${PLUGIN_ROOT}/../..\" -PluginData \"${PLUGIN_DATA}\""
           }
         ]
       }

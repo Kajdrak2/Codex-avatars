@@ -19,7 +19,7 @@ const {
   Tray,
 } = require('electron');
 const { AgentStore } = require('./core/agent-store.cjs');
-const { AgentMetadataResolver, ThreadTitleMonitor } = require('./core/agent-metadata.cjs');
+const { AgentMetadataResolver, ThreadTitleMonitor, readRecentAgentRecords } = require('./core/agent-metadata.cjs');
 const { discoverAvatars, readWebpDimensions } = require('./core/avatar-library.cjs');
 const { reconcileAvatarSelection } = require('./core/avatar-selection.cjs');
 const { buildAvatarPrompt, codexNewThreadUrl } = require('./core/codex-launch.cjs');
@@ -311,6 +311,38 @@ function enrichMetadata(event) {
       broadcastState();
     }
   }).finally(() => pendingMetadata.delete(key));
+}
+
+async function hydrateRecentAgents() {
+  if (!metadataResolver) return;
+  let records = [];
+  try {
+    records = await readRecentAgentRecords(metadataResolver.sessionsRoot);
+  } catch {
+    return;
+  }
+  let changed = false;
+  for (const record of records) {
+    const metadata = record.metadata || {};
+    if (record.isRoot) {
+      changed = store.apply({
+        kind: 'session.working', sessionId: record.sessionId, project: 'Codex',
+        agentLabel: metadata.label || null, model: metadata.model || null,
+        effort: metadata.effort || null, timestamp: record.modifiedAt,
+      }) || changed;
+    } else {
+      changed = store.apply({
+        kind: 'agent.started', sessionId: record.sessionId, agentId: record.agentId,
+        agentType: 'subagent', agentLabel: metadata.label || null,
+        agentNickname: metadata.nickname || null, model: metadata.model || null,
+        effort: metadata.effort || null, timestamp: record.modifiedAt,
+      }) || changed;
+    }
+  }
+  if (changed) {
+    broadcastState();
+    void threadTitleMonitor?.refresh();
+  }
 }
 
 function activeThreadIds() {
@@ -957,6 +989,7 @@ async function startApplication() {
   registerIpc();
   await refreshAvatarLibrary();
   await eventServer.listen();
+  void hydrateRecentAgents();
   createTray();
   createOverlayWindow();
   createSettingsWindow();

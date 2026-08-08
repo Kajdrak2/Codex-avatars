@@ -122,6 +122,71 @@ async function findRolloutFile(directory, agentId, depth = 0) {
   return null;
 }
 
+async function findRecentRolloutFiles(directory, cutoff, depth = 0, files = []) {
+  if (depth > 4) return files;
+  let entries;
+  try {
+    entries = await fsp.readdir(directory, { withFileTypes: true });
+  } catch {
+    return files;
+  }
+  for (const entry of entries) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      await findRecentRolloutFiles(entryPath, cutoff, depth + 1, files);
+      continue;
+    }
+    if (!entry.isFile() || !entry.name.endsWith('.jsonl')) continue;
+    try {
+      const stats = await fsp.stat(entryPath);
+      if (stats.mtimeMs >= cutoff) files.push({ path: entryPath, modifiedAt: stats.mtimeMs });
+    } catch {
+      // A rollout can be replaced while Codex rotates local session files.
+    }
+  }
+  return files;
+}
+
+async function readRecentAgentRecords(sessionsRoot, options = {}) {
+  const maxAgeMs = options.maxAgeMs ?? 120_000;
+  const maxRecords = options.maxRecords ?? 16;
+  const files = await findRecentRolloutFiles(sessionsRoot, Date.now() - maxAgeMs);
+  const records = [];
+  for (const file of files.sort((left, right) => right.modifiedAt - left.modifiedAt).slice(0, maxRecords)) {
+    let sessionMeta = null;
+    const input = fs.createReadStream(file.path, { encoding: 'utf8' });
+    const reader = readline.createInterface({ input, crlfDelay: Infinity });
+    try {
+      for await (const line of reader) {
+        if (!line.includes('"type":"session_meta"')) continue;
+        try {
+          const record = JSON.parse(line);
+          sessionMeta = record.payload || null;
+        } catch {
+          // Ignore a partially appended record.
+        }
+        break;
+      }
+    } finally {
+      reader.close();
+      input.destroy();
+    }
+    const spawn = sessionMeta?.source?.subagent?.thread_spawn || null;
+    const sessionId = sessionMeta?.session_id || spawn?.parent_thread_id || null;
+    const agentId = sessionMeta?.id || null;
+    if (!SAFE_ID.test(String(sessionId || '')) || !SAFE_ID.test(String(agentId || ''))) continue;
+    const metadata = await readMetadataFile(file.path);
+    records.push({
+      sessionId,
+      agentId,
+      isRoot: !spawn,
+      modifiedAt: file.modifiedAt,
+      metadata: metadata || {},
+    });
+  }
+  return records;
+}
+
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -257,6 +322,7 @@ module.exports = {
   AgentMetadataResolver,
   ThreadTitleMonitor,
   findRolloutFile,
+  readRecentAgentRecords,
   metadataFromRecords,
   readMetadataFile,
   readThreadName,

@@ -8,6 +8,7 @@ const path = require('node:path');
 const {
   AgentMetadataResolver,
   ThreadTitleMonitor,
+  readRecentAgentRecords,
   readThreadName,
   readThreadNames,
   safeThreadName,
@@ -34,6 +35,33 @@ test('extracts only task, model, and effort metadata from a local rollout', asyn
   assert.deepEqual(await resolver.resolve(id), {
     label: 'UX scout', nickname: 'Boyle', model: 'gpt-5.6-terra', effort: 'high',
   });
+  await fs.rm(root, { recursive: true, force: true });
+});
+
+test('hydrates recently active roots and subagents without waiting for another hook', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-avatar-recent-'));
+  const day = path.join(root, '2026', '08', '08');
+  const sessionId = '019fe0d3-3d8e-7001-909f-941e3f0a945e';
+  const agentId = '019fe0d3-3d8e-7001-909f-941e3f0a945f';
+  await fs.mkdir(day, { recursive: true });
+  await fs.writeFile(path.join(day, `rollout-root-${sessionId}.jsonl`), [
+    JSON.stringify({ type: 'session_meta', payload: { id: sessionId, session_id: sessionId } }),
+    JSON.stringify({ type: 'turn_context', payload: { model: 'gpt-5.6-sol', effort: 'high' } }),
+  ].join('\n'));
+  await fs.writeFile(path.join(day, `rollout-agent-${agentId}.jsonl`), [
+    JSON.stringify({ type: 'session_meta', payload: {
+      id: agentId, session_id: sessionId, agent_path: '/root/ux_scout',
+      source: { subagent: { thread_spawn: { parent_thread_id: sessionId, agent_path: '/root/ux_scout' } } },
+    } }),
+    JSON.stringify({ type: 'turn_context', payload: { model: 'gpt-5.6-terra', effort: 'medium' } }),
+  ].join('\n'));
+  const records = await readRecentAgentRecords(root, { maxAgeMs: 60_000 });
+  assert.deepEqual(records.map((record) => ({
+    sessionId: record.sessionId, agentId: record.agentId, isRoot: record.isRoot, label: record.metadata.label,
+  })).sort((left, right) => Number(left.isRoot) - Number(right.isRoot)), [
+    { sessionId, agentId, isRoot: false, label: 'UX scout' },
+    { sessionId, agentId: sessionId, isRoot: true, label: null },
+  ]);
   await fs.rm(root, { recursive: true, force: true });
 });
 

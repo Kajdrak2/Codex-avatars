@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-08-08
+
+### Fixed
+
+- SessionEnd hooks omit an explicit timeout to avoid a Codex validator warning at its own three-second limit.
+- A restarted companion immediately reconstructs recently active Codex roots and subagents from local rollout metadata.
+
 ## [0.6.4] - 2026-08-08
 
 ### Fixed
