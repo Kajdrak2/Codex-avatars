@@ -1,6 +1,6 @@
 {
   "name": "codex-avatars",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Independent Codex Pet avatars roaming invisibly across one or more Windows displays.",
   "main": "src/main.cjs",
   "type": "commonjs",
@@ -76,5 +76,8 @@
   "devDependencies": {
     "electron": "43.3.0",
     "electron-builder": "26.15.3"
+  },
+  "dependencies": {
+    "adm-zip": "^0.6.0"
   }
 }

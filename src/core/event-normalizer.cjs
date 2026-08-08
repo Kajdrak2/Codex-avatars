@@ -24,6 +24,17 @@ function projectNameFromCwd(cwd) {
   return path.win32.basename(normalized) || path.posix.basename(normalized) || 'Codex';
 }
 
+function agentMetadata(payload) {
+  const result = {};
+  const agentLabel = nonEmptyString(payload.agent_name ?? payload.agentName ?? payload.task_name ?? payload.taskName);
+  const model = nonEmptyString(payload.model);
+  const effort = nonEmptyString(payload.reasoning_effort ?? payload.reasoningEffort ?? payload.effort);
+  if (agentLabel) result.agentLabel = agentLabel;
+  if (model) result.model = model;
+  if (effort) result.effort = effort;
+  return result;
+}
+
 /**
  * Converts a Codex hook payload into the deliberately small internal protocol.
  * Prompt text, tool arguments, transcripts, and assistant messages are never
@@ -36,18 +47,17 @@ function normalizeHookEvent(payload, timestamp = Date.now()) {
   const sessionId = nonEmptyString(payload.session_id ?? payload.sessionId);
   if (!hookName || !sessionId || !SUPPORTED_EVENTS.has(hookName)) return null;
 
-  const cwd = nonEmptyString(payload.cwd);
+  const projectSource = nonEmptyString(payload.project) || nonEmptyString(payload.cwd);
   const base = {
     sessionId,
     turnId: nonEmptyString(payload.turn_id ?? payload.turnId),
-    project: projectNameFromCwd(cwd),
-    cwd,
+    project: projectNameFromCwd(projectSource),
     timestamp,
   };
 
   switch (hookName) {
     case 'SessionStart':
-      return { ...base, kind: 'session.started' };
+      return { ...base, kind: 'session.started', ...agentMetadata(payload) };
     case 'SessionEnd':
       return { ...base, kind: 'session.ended' };
     case 'UserPromptSubmit':
@@ -64,6 +74,7 @@ function normalizeHookEvent(payload, timestamp = Date.now()) {
         kind: 'agent.started',
         agentId,
         agentType: nonEmptyString(payload.agent_type ?? payload.agentType) || 'subagent',
+        ...agentMetadata(payload),
       };
     }
     case 'SubagentStop': {
@@ -74,6 +85,7 @@ function normalizeHookEvent(payload, timestamp = Date.now()) {
         kind: 'agent.stopped',
         agentId,
         agentType: nonEmptyString(payload.agent_type ?? payload.agentType) || 'subagent',
+        ...agentMetadata(payload),
       };
     }
     default:

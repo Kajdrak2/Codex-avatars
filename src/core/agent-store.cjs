@@ -13,11 +13,27 @@ function copyAgent(agent) {
     id: agent.id,
     type: agent.type,
     label: agent.label,
+    nickname: agent.nickname || null,
+    model: agent.model || null,
+    effort: agent.effort || null,
     status: agent.status,
     isRoot: agent.isRoot,
     startedAt: agent.startedAt,
     updatedAt: agent.updatedAt,
   };
+}
+
+function fallbackAgentLabel(agentId, type) {
+  const normalized = String(type || 'subagent').trim().toLowerCase();
+  if (normalized && !['default', 'subagent'].includes(normalized)) return titleFromType(type);
+  const suffix = String(agentId || '').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase();
+  return suffix ? `Agent ${suffix}` : 'Agent';
+}
+
+function fallbackRootLabel(sessionId, project) {
+  const base = String(project || 'Codex').trim() || 'Codex';
+  const suffix = String(sessionId || '').replace(/[^a-zA-Z0-9]/g, '').slice(-4).toUpperCase();
+  return suffix ? `${base} · ${suffix}` : base;
 }
 
 class AgentStore {
@@ -37,6 +53,7 @@ class AgentStore {
         session.status = 'working';
         session.endedAt = null;
         this.#setRootStatus(session, 'working', timestamp);
+        this.#setRootMetadata(session, event);
         break;
       case 'session.idle':
         session.status = 'idle';
@@ -61,7 +78,11 @@ class AgentStore {
         session.agents.set(event.agentId, {
           id: event.agentId,
           type: event.agentType || existing?.type || 'subagent',
-          label: titleFromType(event.agentType || existing?.type || 'subagent'),
+          label: event.agentLabel || existing?.label
+            || fallbackAgentLabel(event.agentId, event.agentType || existing?.type),
+          nickname: event.agentNickname || existing?.nickname || null,
+          model: event.model || existing?.model || null,
+          effort: event.effort || existing?.effort || null,
           status: 'working',
           isRoot: false,
           startedAt: existing?.startedAt ?? timestamp,
@@ -75,13 +96,28 @@ class AgentStore {
         session.agents.set(event.agentId, {
           id: event.agentId,
           type: event.agentType || existing?.type || 'subagent',
-          label: titleFromType(event.agentType || existing?.type || 'subagent'),
+          label: event.agentLabel || existing?.label
+            || fallbackAgentLabel(event.agentId, event.agentType || existing?.type),
+          nickname: event.agentNickname || existing?.nickname || null,
+          model: event.model || existing?.model || null,
+          effort: event.effort || existing?.effort || null,
           status: 'done',
           isRoot: false,
           startedAt: existing?.startedAt ?? timestamp,
           updatedAt: timestamp,
           removeAt: timestamp + this.completionGraceMs,
         });
+        break;
+      }
+      case 'agent.metadata': {
+        const agentKey = event.isRoot ? `root:${event.sessionId}` : event.agentId;
+        const existing = session.agents.get(agentKey);
+        if (!existing) return false;
+        if (event.agentLabel) existing.label = event.agentLabel;
+        if (event.agentNickname) existing.nickname = event.agentNickname;
+        if (event.model) existing.model = event.model;
+        if (event.effort) existing.effort = event.effort;
+        existing.updatedAt = timestamp;
         break;
       }
       default:
@@ -115,6 +151,10 @@ class AgentStore {
     return changed;
   }
 
+  removeSession(sessionId) {
+    return this.sessions.delete(sessionId);
+  }
+
   snapshot() {
     return {
       sessions: [...this.sessions.values()]
@@ -122,7 +162,6 @@ class AgentStore {
         .map((session) => ({
           id: session.id,
           project: session.project,
-          cwd: session.cwd,
           status: session.status,
           startedAt: session.startedAt,
           updatedAt: session.updatedAt,
@@ -141,7 +180,6 @@ class AgentStore {
       session = {
         id: event.sessionId,
         project: event.project || 'Codex',
-        cwd: event.cwd || null,
         status: 'working',
         startedAt: timestamp,
         updatedAt: timestamp,
@@ -152,7 +190,10 @@ class AgentStore {
       session.agents.set(`root:${event.sessionId}`, {
         id: `root:${event.sessionId}`,
         type: 'main',
-        label: 'Main agent',
+        label: event.agentLabel || fallbackRootLabel(event.sessionId, event.project),
+        nickname: null,
+        model: null,
+        effort: null,
         status: 'working',
         isRoot: true,
         startedAt: timestamp,
@@ -162,7 +203,6 @@ class AgentStore {
       this.sessions.set(event.sessionId, session);
     } else {
       if (event.project) session.project = event.project;
-      if (event.cwd) session.cwd = event.cwd;
     }
 
     return session;
@@ -175,9 +215,19 @@ class AgentStore {
     root.updatedAt = timestamp;
     root.removeAt = status === 'done' ? timestamp + this.completionGraceMs : null;
   }
+
+  #setRootMetadata(session, event) {
+    const root = session.agents.get(`root:${session.id}`);
+    if (!root) return;
+    if (event.agentLabel) root.label = event.agentLabel;
+    if (event.model) root.model = event.model;
+    if (event.effort) root.effort = event.effort;
+  }
 }
 
 module.exports = {
   AgentStore,
+  fallbackAgentLabel,
+  fallbackRootLabel,
   titleFromType,
 };

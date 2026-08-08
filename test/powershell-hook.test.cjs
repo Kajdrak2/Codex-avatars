@@ -35,6 +35,9 @@ test('PowerShell hook forwards only allowlisted metadata', { skip: process.platf
     cwd: 'C:\\Projects\\safe',
     agent_id: 'agent-safe',
     agent_type: 'reviewer',
+    agent_name: 'Safe reviewer',
+    model: 'gpt-5.6-terra',
+    reasoning_effort: 'medium',
     prompt: 'secret prompt',
     tool_input: { command: 'secret command' },
     last_assistant_message: 'secret answer',
@@ -46,8 +49,11 @@ test('PowerShell hook forwards only allowlisted metadata', { skip: process.platf
     hook_event_name: 'SubagentStart',
     session_id: 'session-safe',
     turn_id: 'turn-safe',
-    cwd: 'C:\\Projects\\safe',
+    project: 'safe',
     agent_id: 'agent-safe',
     agent_type: 'reviewer',
+    agent_name: 'Safe reviewer',
+    model: 'gpt-5.6-terra',
+    reasoning_effort: 'medium',
   }]);
 });

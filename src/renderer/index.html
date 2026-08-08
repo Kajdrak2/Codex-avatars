@@ -17,6 +17,14 @@
         </div>
       </div>
       <div class="header-status">
+        <label class="language-menu">
+          <span id="language-label"></span>
+          <select id="language-select" aria-label="Language">
+            <option value="en">English</option>
+            <option value="fr">Français</option>
+          </select>
+        </label>
+        <button id="tour-button" class="quiet-button compact-button" type="button"></button>
         <span id="active-count" class="status-pill"></span>
         <span id="version" class="version"></span>
       </div>
@@ -40,13 +48,13 @@
           <input id="passive-toggle" class="switch" type="checkbox">
         </label>
 
-        <div class="setting-card">
+        <label class="setting-card">
           <span class="setting-copy">
             <strong id="startup-title"></strong>
             <small id="startup-copy"></small>
           </span>
           <input id="startup-toggle" class="switch" type="checkbox">
-        </div>
+        </label>
       </section>
 
       <section class="panel avatar-panel">
@@ -67,34 +75,104 @@
 
         <div class="avatar-options">
           <label class="range-setting">
-            <span id="avatar-size-title"></span>
-            <input id="avatar-size" type="range" min="72" max="180" step="2">
-            <output id="avatar-size-value"></output>
+            <span id="main-avatar-size-title"></span>
+            <input id="main-avatar-size" type="range" min="72" max="180" step="2">
+            <output id="main-avatar-size-value"></output>
+          </label>
+          <label class="range-setting">
+            <span id="subagent-avatar-size-title"></span>
+            <input id="subagent-avatar-size" type="range" min="72" max="180" step="2">
+            <output id="subagent-avatar-size-value"></output>
           </label>
           <label class="compact-toggle">
             <input id="labels-toggle" type="checkbox">
             <span id="labels-title"></span>
           </label>
           <label class="compact-toggle">
+            <input id="agent-details-toggle" type="checkbox">
+            <span id="agent-details-title"></span>
+          </label>
+          <label class="compact-toggle help-toggle">
             <input id="new-avatars-toggle" type="checkbox">
-            <span id="new-avatars-title"></span>
+            <span><strong id="new-avatars-title"></strong><small id="new-avatars-help"></small></span>
           </label>
           <label class="compact-toggle">
             <input id="motion-toggle" type="checkbox">
             <span id="motion-title"></span>
           </label>
         </div>
+      </section>
 
-        <div class="create-avatar-callout">
+      <section class="panel creator-panel">
+        <div class="section-heading">
           <div>
-            <strong id="create-title"></strong>
-            <span id="create-copy"></span>
+            <span class="eyebrow" id="creator-eyebrow"></span>
+            <h2 id="creator-title"></h2>
+            <p id="creator-copy"></p>
           </div>
-          <div class="button-row">
-            <button id="create-avatar" class="primary-button" type="button"></button>
-            <button id="open-pet-folder" class="quiet-button" type="button"></button>
-          </div>
+          <span class="plugin-badge">hatch-pet</span>
         </div>
+
+        <form id="avatar-brief-form" class="avatar-brief">
+          <label>
+            <span id="brief-name-label"></span>
+            <input name="name" type="text" maxlength="80" autocomplete="off">
+          </label>
+          <label>
+            <span id="brief-style-label"></span>
+            <select name="style">
+              <option id="style-auto" value="Let hatch-pet choose the best polished style"></option>
+              <option id="style-pixel" value="polished pixel art"></option>
+              <option id="style-plush" value="soft plush mascot"></option>
+              <option id="style-clay" value="handmade clay figure"></option>
+              <option id="style-sticker" value="clean sticker illustration"></option>
+              <option id="style-toy" value="stylized 3D toy"></option>
+              <option id="style-painterly" value="painterly storybook character"></option>
+            </select>
+          </label>
+          <label class="wide-field">
+            <span id="brief-appearance-label"></span>
+            <textarea name="appearance" maxlength="1200" rows="4" required></textarea>
+            <small id="brief-appearance-help"></small>
+          </label>
+          <label>
+            <span id="brief-personality-label"></span>
+            <input name="personality" type="text" maxlength="400" autocomplete="off">
+          </label>
+          <label>
+            <span id="brief-palette-label"></span>
+            <input name="palette" type="text" maxlength="240" autocomplete="off">
+          </label>
+          <label>
+            <span id="brief-props-label"></span>
+            <input name="props" type="text" maxlength="400" autocomplete="off">
+          </label>
+          <label>
+            <span id="brief-avoid-label"></span>
+            <input name="avoid" type="text" maxlength="400" autocomplete="off">
+          </label>
+          <div class="wide-field form-actions">
+            <button id="create-avatar" class="primary-button" type="submit"></button>
+            <button id="copy-prompt" class="quiet-button" type="button"></button>
+            <span id="create-note"></span>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel gallery-panel">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow" id="gallery-eyebrow"></span>
+            <h2 id="gallery-title"></h2>
+            <p id="gallery-copy"></p>
+          </div>
+          <span class="format-badge">.codexpet</span>
+        </div>
+        <div class="gallery-actions">
+          <button id="import-pet" class="primary-button" type="button"></button>
+          <button id="open-pet-folder" class="quiet-button" type="button"></button>
+        </div>
+        <p id="gallery-help" class="fine-print"></p>
       </section>
 
       <section class="panel zone-panel">
@@ -113,14 +191,13 @@
         </div>
 
         <div id="display-list" class="display-list"></div>
-
-        <form id="custom-zone-form" class="custom-zone" hidden>
-          <label><span>X</span><input name="x" type="number" required></label>
-          <label><span>Y</span><input name="y" type="number" required></label>
-          <label><span id="width-label"></span><input name="width" type="number" min="160" required></label>
-          <label><span id="height-label"></span><input name="height" type="number" min="120" required></label>
-          <button id="apply-custom-zone" class="primary-button" type="submit"></button>
-        </form>
+        <div id="custom-zone-actions" class="custom-zone-actions" hidden>
+          <div>
+            <strong id="custom-zone-summary"></strong>
+            <span id="custom-zone-help"></span>
+          </div>
+          <button id="pick-zone" class="primary-button" type="button"></button>
+        </div>
       </section>
 
       <section class="panel integration-panel">
@@ -132,6 +209,11 @@
           </div>
           <span class="plugin-badge">Codex plugin</span>
         </div>
+        <ol class="integration-steps">
+          <li id="integration-step-plugin"></li>
+          <li id="integration-step-trust"></li>
+          <li id="integration-step-create"></li>
+        </ol>
         <div class="integration-actions">
           <button id="open-plugin-button" class="primary-button" type="button"></button>
           <button id="legacy-hooks-button" class="quiet-button" type="button"></button>
@@ -140,6 +222,45 @@
         </div>
       </section>
     </main>
+
+    <dialog id="onboarding-dialog" class="onboarding-dialog">
+      <div class="onboarding-shell">
+        <div class="onboarding-progress" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <button id="onboarding-close" class="dialog-close" type="button" aria-label="Close">×</button>
+        <section class="onboarding-page" data-step="0">
+          <span class="onboarding-number">01</span>
+          <h2 id="onboarding-welcome-title"></h2>
+          <p id="onboarding-welcome-copy"></p>
+          <div class="onboarding-feature" id="onboarding-welcome-feature"></div>
+        </section>
+        <section class="onboarding-page" data-step="1" hidden>
+          <span class="onboarding-number">02</span>
+          <h2 id="onboarding-plugin-title"></h2>
+          <p id="onboarding-plugin-copy"></p>
+          <div class="onboarding-feature" id="onboarding-plugin-feature"></div>
+          <button id="onboarding-plugin-button" class="primary-button" type="button"></button>
+        </section>
+        <section class="onboarding-page" data-step="2" hidden>
+          <span class="onboarding-number">03</span>
+          <h2 id="onboarding-avatar-title"></h2>
+          <p id="onboarding-avatar-copy"></p>
+          <div class="onboarding-feature" id="onboarding-avatar-feature"></div>
+        </section>
+        <section class="onboarding-page" data-step="3" hidden>
+          <span class="onboarding-number">04</span>
+          <h2 id="onboarding-zone-title"></h2>
+          <p id="onboarding-zone-copy"></p>
+          <div class="onboarding-feature" id="onboarding-zone-feature"></div>
+        </section>
+        <footer class="onboarding-footer">
+          <button id="onboarding-back" class="quiet-button" type="button"></button>
+          <span id="onboarding-step-label"></span>
+          <button id="onboarding-next" class="primary-button" type="button"></button>
+        </footer>
+      </div>
+    </dialog>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script src="./renderer.js"></script>

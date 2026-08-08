@@ -21,6 +21,8 @@ PowerShell bridge -- starts renderer when absent
       | local named pipe: codex-avatars-v1
       v
 Normalizer + agent store
+      ^
+      | local title index + rollout metadata: labels, model, effort only
       |
       +-------------> normal settings window + Windows tray
       |
@@ -45,7 +47,7 @@ Codex copies installed local plugins into its cache. `install.ps1` therefore sto
 
 The NSIS installer is the end-user path. It embeds the repo marketplace and plugin under `resources/integration`, so it does not depend on a clone after installation. Its custom install phase merges standalone lifecycle hooks and registers the exact executable path in the per-user `CODEX_AVATARS_APP` environment value. The custom uninstall phase removes only hooks carrying the Codex Avatars marker and deletes that environment value only when it still points at the uninstalling copy.
 
-On the first normal packaged launch, the companion opens the bundled marketplace through a `codex://plugins/codex-avatars` deeplink. The user still installs the plugin and reviews its hooks in Codex; this security boundary is intentionally not automated.
+The first normal packaged launch shows a four-step guide. Its plugin action opens the bundled marketplace through a `codex://plugins/codex-avatars` deeplink. The user still installs the plugin and reviews its hooks in Codex; this security boundary is intentionally not automated.
 
 ## Overlay and control surface
 
@@ -57,7 +59,9 @@ The roaming resolver supports:
 
 - all displays;
 - an explicit set of display ids;
-- one clamped rectangle in virtual-screen coordinates, including negative monitor coordinates.
+- one clamped rectangle in virtual-screen coordinates, including negative monitor coordinates, selected through a full-desktop drag surface.
+
+Actors receive deterministic initial display assignments. When more than one zone is active they cycle between zones; changing zones relocates the actor into the target work area before normal movement resumes, avoiding the old constraint loop that pinned actors to the primary display.
 
 ## Avatar library
 
@@ -67,12 +71,16 @@ V2 sheets use 8 columns, 11 rows, `192x208` cells, and a final size of `1536x228
 
 Personal Pet binaries are never copied into Git. A watcher refreshes the library every five seconds and can automatically enable newly created avatars.
 
+The Pet Gallery exports a constrained `.codexpet` ZIP and stages imports before validation. Only a small allowlist of root files is accepted; existing ids are never overwritten. See `docs/pet-gallery.md`.
+
 ## Persistence and privacy
 
 Renderer preferences are stored under Electron's per-user application data directory. No prompt or transcript data is persisted.
 
-The bridge accepts only event name, session id, turn id, working directory, agent id, agent type, and tool name. The named-pipe server limits payload size, ignores malformed data, and never exposes a TCP port.
+The bridge accepts only event name, session id, turn id, agent id, agent type, optional task/model/effort metadata, and a project-folder basename derived inside the hook. The full working-directory path never enters the pipe or renderer state. The named-pipe server limits payload size, ignores malformed data, and never exposes a TCP port.
+
+Current lifecycle hooks expose `agent_id` and `agent_type`, but not the main task title, collaboration task label, configured model, or reasoning effort. The optional metadata resolver reads the root title from `session_index.jsonl`, then matches `agent_id` to the local rollout filename, reads `session_meta` and the first `turn_context`, and returns only the task title, `agent_path`, nickname, model, and effort. Conversation records are not added to the agent store or settings.
 
 ## Event accuracy
 
-`SubagentStart` and `SubagentStop` include `agent_id` and `agent_type`, which is enough to create and retire independent actors. Tool-use hook payloads do not currently expose an individual subagent id, so the renderer does not claim per-agent command or file attribution.
+`SubagentStart` and `SubagentStop` include `agent_id` and `agent_type`, which is enough to create and retire independent actors. Tool-use hook payloads do not currently expose an individual subagent id, so the renderer does not claim per-agent command or file attribution. When rollout enrichment is unavailable, a unique `Agent XXXX` fallback is shown instead of repeating `Default`.

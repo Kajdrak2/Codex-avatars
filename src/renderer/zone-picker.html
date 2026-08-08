@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'none'; connect-src 'none'">
+    <title>Select roaming area</title>
+    <link rel="stylesheet" href="./zone-picker.css">
+  </head>
+  <body>
+    <div class="veil"></div>
+    <div id="selection" class="selection" hidden></div>
+    <div class="instructions">
+      <strong id="picker-title"></strong>
+      <span id="picker-copy"></span>
+    </div>
+    <div id="actions" class="actions" hidden>
+      <span id="size"></span>
+      <button id="cancel" type="button"></button>
+      <button id="apply" type="button"></button>
+    </div>
+    <script src="./zone-picker.js"></script>
+  </body>
+</html>

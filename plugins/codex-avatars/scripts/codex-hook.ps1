@@ -97,13 +97,23 @@ try {
         "hook_event_name",
         "session_id",
         "turn_id",
-        "cwd",
         "agent_id",
         "agent_type",
-        "tool_name"
+        "agent_name",
+        "task_name",
+        "model",
+        "reasoning_effort"
     )) {
         if ($null -ne $source.$property) {
             $safePayload[$property] = $source.$property
+        }
+    }
+
+    if ($null -ne $source.cwd -and -not [string]::IsNullOrWhiteSpace([string]$source.cwd)) {
+        $normalizedCwd = ([string]$source.cwd) -replace '[\\/]+$', ''
+        $projectName = Split-Path -Path $normalizedCwd -Leaf
+        if (-not [string]::IsNullOrWhiteSpace($projectName)) {
+            $safePayload["project"] = $projectName
         }
     }
 

@@ -31,3 +31,39 @@ test('marks the root agent when a session needs attention', () => {
   assert.equal(root.isRoot, true);
   assert.equal(root.status, 'attention');
 });
+
+test('records model and effort on the main agent when available', () => {
+  const store = new AgentStore();
+  store.apply({ kind: 'session.started', sessionId: 'root-model', model: 'gpt-5.6-sol', effort: 'high', timestamp: 1 });
+  const root = store.snapshot().sessions[0].agents[0];
+  assert.equal(root.model, 'gpt-5.6-sol');
+  assert.equal(root.effort, 'high');
+});
+
+test('replaces the main-agent fallback with the Codex task title', () => {
+  const store = new AgentStore();
+  store.apply({ kind: 'session.started', sessionId: '019fd6b6-6e4f-71f0-a2ad-e46cc2f08757', project: 'avatars', timestamp: 1 });
+  let root = store.snapshot().sessions[0].agents[0];
+  assert.equal(root.label, 'avatars · 8757');
+  store.apply({
+    kind: 'agent.metadata', sessionId: '019fd6b6-6e4f-71f0-a2ad-e46cc2f08757',
+    isRoot: true, agentLabel: 'Continue Codex Avatars', timestamp: 2,
+  });
+  root = store.snapshot().sessions[0].agents[0];
+  assert.equal(root.label, 'Continue Codex Avatars');
+});
+
+test('replaces a generic profile with local task, model, and effort metadata', () => {
+  const store = new AgentStore();
+  store.apply({ kind: 'agent.started', sessionId: 's3', agentId: '019fe0d3-3d8e-7001', agentType: 'default', timestamp: 1 });
+  let agent = store.snapshot().sessions[0].agents[1];
+  assert.match(agent.label, /^Agent /);
+  store.apply({
+    kind: 'agent.metadata', sessionId: 's3', agentId: agent.id, agentLabel: 'UX scout',
+    model: 'gpt-5.6-terra', effort: 'high', timestamp: 2,
+  });
+  agent = store.snapshot().sessions[0].agents[1];
+  assert.equal(agent.label, 'UX scout');
+  assert.equal(agent.model, 'gpt-5.6-terra');
+  assert.equal(agent.effort, 'high');
+});

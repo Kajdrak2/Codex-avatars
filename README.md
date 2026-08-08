@@ -2,7 +2,7 @@
 
 Codex Avatars gives the main task and every Codex subagent an independent animated companion. Characters use the native Codex Pet v2 format and roam directly across one or more displays, with no dock, colored panel, or visible overlay background.
 
-> Project status: version `0.3.0` provides a self-contained Windows installer and a Git-ready plugin marketplace. This checkout does not yet have a configured remote or a published signed binary.
+> Project status: version `0.4.0` provides a self-contained Windows installer, a Git-ready plugin marketplace, and portable Pet sharing. This checkout does not yet have a configured remote or a published signed binary.
 
 [Lire en français](README.fr.md)
 
@@ -14,6 +14,11 @@ Codex Avatars gives the main task and every Codex subagent an independent animat
 - Enable or disable avatars discovered under `~/.codex/pets`.
 - Automatically detect avatars created from ChatGPT Work or Codex.
 - Roam on every display, selected displays, or an exact custom rectangle.
+- Draw custom roaming rectangles directly on the desktop, like a screenshot selection.
+- Show each main Codex task title and the real collaboration subtask name, plus optional model and reasoning effort.
+- Size main agents and subagents independently.
+- Create a tailored Pet from the settings form in a prefilled Codex task.
+- Import and share validated `.codexpet` packages through the local Pet Gallery.
 - Escape passive mode from settings, the Windows tray icon, or `Ctrl+Alt+A`.
 - Start on the first Codex session event, with login startup as a fallback.
 - Local, metadata-minimized event transport.
@@ -26,7 +31,7 @@ A small local Electron process therefore draws the desktop sprites. The installe
 
 ## Simple installation — recommended
 
-1. Download `Codex Avatars-Setup-0.3.0.exe` from the GitHub release.
+1. Download `Codex Avatars-Setup-0.4.0.exe` from the GitHub release.
 2. Run the installer and finish the wizard.
 3. On the Codex plugin page that opens, install **Codex Avatars** and review its hooks.
 
@@ -60,22 +65,21 @@ The overlay intentionally has no panel. Open settings from the **Codex Avatars**
 
 - Passive mode makes every click pass through; `Ctrl+Alt+A` always remains available.
 - Interactive mode lets you drag individual avatars without blocking the rest of the desktop.
-- Select active Pets, avatar size, labels, reduced movement, and automatic activation of new avatars.
-- Choose all displays, selected monitors, or a custom `X`, `Y`, width, and height.
+- Select active Pets, separate main/subagent sizes, names, model/effort details, reduced movement, and automatic activation of newly discovered Pets.
+- Choose all displays, selected monitors, or draw a custom area on the desktop.
+- Start and stop the synthetic demo from the same button.
 
 ## Create an avatar from Work or Codex
 
-After installing the plugin, start a new task with:
-
-```text
-Use $create-codex-avatar to create a new Codex Avatars companion.
-```
+Open the character studio in settings, describe the appearance, style, personality, colors, props, and exclusions, then choose **Create in Codex**. The app opens `codex://threads/new` with the full prompt prepared. Because that prefill protocol is currently a desktop implementation detail rather than a published compatibility contract, the app copies the same prompt only if launching Codex fails.
 
 The skill delegates to the official `hatch-pet` workflow, validates a `1536x2288` v2 atlas, and installs `pet.json` beside `spritesheet.webp` under `~/.codex/pets/<pet-id>`. The renderer refreshes that shared library every five seconds.
 
 ## Privacy
 
-The hook allowlists only lifecycle name, session/turn/agent ids, agent type, working directory, and tool name when present. Prompts, tool arguments, command output, transcripts, messages, source contents, and secrets are excluded.
+The hook allowlists only lifecycle name, session/turn/agent ids, agent type, optional agent name/model/effort, and the final project-folder name. The full working-directory path never crosses the bridge. Prompts, tool arguments, command output, transcripts, messages, source contents, and secrets are excluded.
+
+Codex hooks do not currently expose task titles, collaboration task names, models, or effort. To label an avatar accurately, the companion reads the root title from Codex's local `session_index.jsonl`, then correlates each hook `agent_id` with the matching local rollout and extracts only `agent_path`, `model`, and `effort`; it does not copy conversation content into its state or settings.
 
 Events use the local `codex-avatars-v1` named pipe. There is no TCP listener or remote service.
 
@@ -97,6 +101,7 @@ npm run dist
 ## Current limitations
 
 - `SubagentStart` and `SubagentStop` expose an individual `agent_id`; tool-use hooks do not. Codex Avatars does not invent per-agent tool attribution.
+- There is no official public Pet marketplace. The built-in Pet Gallery is a safe portable package/import layer suitable for sharing through GitHub or another catalog; see [docs/pet-gallery.md](docs/pet-gallery.md).
 - A plugin alone cannot draw above the entire Windows desktop; the local renderer is a real platform boundary.
 - A broadly distributed installer should be code-signed to avoid SmartScreen warnings.
 

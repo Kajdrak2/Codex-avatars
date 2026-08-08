@@ -111,7 +111,7 @@ async function discoverAvatars(roots) {
     }
 
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
+      if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
       try {
         const avatar = await readAvatarPackage(path.join(root.path, entry.name), root.source || 'custom');
         if (!avatars.has(avatar.id)) avatars.set(avatar.id, avatar);

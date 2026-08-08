@@ -17,6 +17,7 @@ let snapshot = { sessions: [] };
 let settings = null;
 let avatars = [];
 let zone = null;
+let zoneSignature = null;
 let previousFrame = performance.now();
 let lastHitTest = null;
 let draggedActor = null;
@@ -52,20 +53,38 @@ function viewportZones() {
     : [{ x: 0, y: 0, width: window.innerWidth, height: window.innerHeight }];
 }
 
-function chooseTarget(actor, immediate = false) {
-  const zones = viewportZones();
-  const selected = zones[Math.floor(nextRandom(actor) * zones.length)] || zones[0];
-  const size = settings?.avatarSize || 118;
-  const labelSpace = settings?.showLabels ? 36 : 8;
+function avatarSizeFor(agent) {
+  return agent?.isRoot
+    ? (settings?.mainAvatarSize || 118)
+    : (settings?.subagentAvatarSize || 118);
+}
+
+function randomPoint(actor, selected) {
+  const size = avatarSizeFor(actor.agent);
+  const labelSpace = settings?.showLabels ? (settings?.showAgentDetails ? 52 : 36) : 8;
   const usableWidth = Math.max(1, selected.width - size);
   const usableHeight = Math.max(1, selected.height - (size * 1.08334) - labelSpace);
-  actor.targetX = selected.x + nextRandom(actor) * usableWidth;
-  actor.targetY = selected.y + nextRandom(actor) * usableHeight;
+  return {
+    x: selected.x + nextRandom(actor) * usableWidth,
+    y: selected.y + nextRandom(actor) * usableHeight,
+  };
+}
+
+function chooseTarget(actor, options = {}) {
+  const zones = viewportZones();
+  const previousZone = actor.zoneIndex;
+  if (!Number.isInteger(actor.zoneIndex)) actor.zoneIndex = (options.initialIndex || 0) % zones.length;
+  if (options.cycleZone && zones.length > 1) actor.zoneIndex = (actor.zoneIndex + 1) % zones.length;
+  actor.zoneIndex %= zones.length;
+  const selected = zones[actor.zoneIndex] || zones[0];
+  const target = randomPoint(actor, selected);
+  actor.targetX = target.x;
+  actor.targetY = target.y;
   actor.targetAt = performance.now() + 3_000 + nextRandom(actor) * 6_000;
-  if (immediate) {
-    actor.x = actor.targetX;
-    actor.y = actor.targetY;
-    chooseTarget(actor, false);
+  if (options.immediate || (Number.isInteger(previousZone) && previousZone !== actor.zoneIndex)) {
+    const placement = randomPoint(actor, selected);
+    actor.x = placement.x;
+    actor.y = placement.y;
   }
 }
 
@@ -87,12 +106,17 @@ function createActor(agent, avatar, index) {
   const element = document.createElement('article');
   element.className = 'avatar';
   element.dataset.agentId = agent.id;
-  element.setAttribute('aria-label', agent.isRoot ? `Main agent, ${agent.status}` : `${agent.label}, ${agent.status}`);
+  element.setAttribute('aria-label', `${agent.label}, ${agent.status}`);
 
   const sprite = document.createElement('div');
   sprite.className = 'sprite';
   const label = document.createElement('span');
   label.className = 'agent-label';
+  const labelName = document.createElement('span');
+  labelName.className = 'agent-name';
+  const labelDetail = document.createElement('small');
+  labelDetail.className = 'agent-detail';
+  label.append(labelName, labelDetail);
   element.append(sprite, label);
   world.append(element);
 
@@ -103,6 +127,8 @@ function createActor(agent, avatar, index) {
     element,
     sprite,
     label,
+    labelName,
+    labelDetail,
     x: 0,
     y: 0,
     targetX: 0,
@@ -112,18 +138,24 @@ function createActor(agent, avatar, index) {
     velocityY: 0,
     speed: 22 + (hash(agent.id) % 24),
     randomState: (hash(`${agent.id}:${index}`) || 1) >>> 0,
+    zoneIndex: index % Math.max(1, viewportZones().length),
     dragging: false,
   };
-  chooseTarget(actor, true);
+  chooseTarget(actor, { immediate: true, initialIndex: index });
   return actor;
 }
 
 function updateActorElement(actor) {
-  const { agent, avatar, element, sprite, label } = actor;
+  const { agent, avatar, element, sprite, label, labelName, labelDetail } = actor;
   element.className = `avatar status-${agent.status}${agent.isRoot ? ' is-root' : ''}${actor.dragging ? ' is-dragging' : ''}`;
-  element.style.setProperty('--avatar-size', `${settings?.avatarSize || 118}px`);
+  element.style.setProperty('--avatar-size', `${avatarSizeFor(agent)}px`);
+  element.style.setProperty('--label-height', settings?.showLabels && settings?.showAgentDetails ? '50px' : '34px');
   label.hidden = !settings?.showLabels;
-  label.textContent = agent.isRoot ? 'Main' : agent.label;
+  labelName.textContent = agent.label;
+  const detail = [agent.model, agent.effort].filter(Boolean).join(' · ');
+  labelDetail.textContent = detail;
+  labelDetail.hidden = !settings?.showAgentDetails || !detail;
+  element.setAttribute('aria-label', [labelName.textContent, detail, agent.status].filter(Boolean).join(', '));
   sprite.style.backgroundImage = `url("${avatar.assetUrl}")`;
   sprite.style.backgroundSize = `800% ${avatar.rows * 100}%`;
 }
@@ -190,7 +222,7 @@ function moveActor(actor, deltaSeconds, time) {
   let dy = actor.targetY - actor.y;
   let distance = Math.hypot(dx, dy);
   if (distance < 10 || time > actor.targetAt) {
-    chooseTarget(actor);
+    chooseTarget(actor, { cycleZone: true });
     dx = actor.targetX - actor.x;
     dy = actor.targetY - actor.y;
     distance = Math.hypot(dx, dy);
@@ -208,11 +240,11 @@ function moveActor(actor, deltaSeconds, time) {
 
 function applySeparation() {
   const list = [...actors.values()].filter((actor) => !actor.dragging);
-  const minimum = (settings?.avatarSize || 118) * 0.95;
   for (let leftIndex = 0; leftIndex < list.length; leftIndex += 1) {
     for (let rightIndex = leftIndex + 1; rightIndex < list.length; rightIndex += 1) {
       const left = list[leftIndex];
       const right = list[rightIndex];
+      const minimum = (avatarSizeFor(left.agent) + avatarSizeFor(right.agent)) * 0.475;
       const dx = right.x - left.x;
       const dy = right.y - left.y;
       const distance = Math.max(1, Math.hypot(dx, dy));
@@ -228,22 +260,12 @@ function applySeparation() {
 
 function constrainActor(actor) {
   const zones = viewportZones();
-  const size = settings?.avatarSize || 118;
-  const height = size * 1.08334 + (settings?.showLabels ? 34 : 0);
+  const size = avatarSizeFor(actor.agent);
+  const height = size * 1.08334 + (settings?.showLabels ? (settings?.showAgentDetails ? 50 : 34) : 0);
   const centerX = actor.x + size / 2;
   const centerY = actor.y + height / 2;
-  let selected = zones.find((rectangle) => centerX >= rectangle.x
-    && centerX <= rectangle.x + rectangle.width
-    && centerY >= rectangle.y
-    && centerY <= rectangle.y + rectangle.height);
-  if (!selected) {
-    selected = zones.reduce((best, rectangle) => {
-      const x = Math.max(rectangle.x, Math.min(centerX, rectangle.x + rectangle.width));
-      const y = Math.max(rectangle.y, Math.min(centerY, rectangle.y + rectangle.height));
-      const distance = Math.hypot(centerX - x, centerY - y);
-      return !best || distance < best.distance ? { rectangle, distance } : best;
-    }, null).rectangle;
-  }
+  actor.zoneIndex = Number.isInteger(actor.zoneIndex) ? actor.zoneIndex % zones.length : 0;
+  const selected = zones[actor.zoneIndex] || zones[0];
   const sidePadding = settings?.showLabels ? 18 : 2;
   actor.x = Math.max(selected.x + sidePadding,
     Math.min(actor.x, selected.x + selected.width - size - sidePadding));
@@ -307,7 +329,12 @@ world.addEventListener('pointerup', (event) => {
 
 document.addEventListener('contextmenu', (event) => event.preventDefault());
 window.addEventListener('resize', () => {
-  for (const actor of actors.values()) chooseTarget(actor);
+  let index = 0;
+  for (const actor of actors.values()) {
+    actor.zoneIndex = index % Math.max(1, viewportZones().length);
+    chooseTarget(actor, { immediate: true, initialIndex: index });
+    index += 1;
+  }
 });
 
 api.onState((value) => {
@@ -315,9 +342,20 @@ api.onState((value) => {
   reconcileActors();
 });
 api.onSettings((value) => {
+  const nextZoneSignature = JSON.stringify(value.zone || null);
+  const zoneChanged = nextZoneSignature !== zoneSignature;
   settings = value.settings;
   zone = value.zone;
+  zoneSignature = nextZoneSignature;
   updateInteractiveClass();
+  if (zoneChanged) {
+    let index = 0;
+    for (const actor of actors.values()) {
+      actor.zoneIndex = index % Math.max(1, viewportZones().length);
+      chooseTarget(actor, { immediate: true, initialIndex: index });
+      index += 1;
+    }
+  }
   reconcileActors();
 });
 api.onLibrary((value) => {
@@ -331,6 +369,7 @@ async function initialize() {
   settings = bootstrap.settings;
   avatars = bootstrap.avatars;
   zone = bootstrap.zone;
+  zoneSignature = JSON.stringify(zone || null);
   updateInteractiveClass();
   reconcileActors();
   requestAnimationFrame(animate);

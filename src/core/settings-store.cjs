@@ -2,17 +2,24 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { randomUUID } = require('node:crypto');
 
 const DEFAULT_SETTINGS = Object.freeze({
-  schemaVersion: 3,
+  schemaVersion: 5,
+  language: 'en',
   passive: true,
   enabledAvatarIds: [],
   avatarSelectionInitialized: false,
+  knownAvatarIds: [],
+  avatarKnowledgeInitialized: false,
   autoEnableNewAvatars: true,
-  avatarSize: 118,
+  mainAvatarSize: 118,
+  subagentAvatarSize: 118,
   showLabels: true,
+  showAgentDetails: true,
   reducedMotion: false,
   pluginOnboardingShown: false,
+  onboardingCompleted: false,
   zone: {
     mode: 'all',
     displayIds: [],
@@ -56,20 +63,29 @@ function normalizeZone(value) {
 
 function normalizeSettings(value) {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const legacyAvatarSize = clampInteger(source.avatarSize, 72, 180, DEFAULT_SETTINGS.mainAvatarSize);
   return {
     schemaVersion: DEFAULT_SETTINGS.schemaVersion,
+    language: source.language === 'fr' ? 'fr' : 'en',
     passive: source.passive === undefined ? DEFAULT_SETTINGS.passive : Boolean(source.passive),
     enabledAvatarIds: normalizeStringArray(source.enabledAvatarIds),
     avatarSelectionInitialized: Boolean(source.avatarSelectionInitialized),
+    knownAvatarIds: normalizeStringArray(source.knownAvatarIds),
+    avatarKnowledgeInitialized: Boolean(source.avatarKnowledgeInitialized),
     autoEnableNewAvatars: source.autoEnableNewAvatars === undefined
       ? DEFAULT_SETTINGS.autoEnableNewAvatars
       : Boolean(source.autoEnableNewAvatars),
-    avatarSize: clampInteger(source.avatarSize, 72, 180, DEFAULT_SETTINGS.avatarSize),
+    mainAvatarSize: clampInteger(source.mainAvatarSize, 72, 180, legacyAvatarSize),
+    subagentAvatarSize: clampInteger(source.subagentAvatarSize, 72, 180, legacyAvatarSize),
     showLabels: source.showLabels === undefined ? DEFAULT_SETTINGS.showLabels : Boolean(source.showLabels),
+    showAgentDetails: source.showAgentDetails === undefined
+      ? DEFAULT_SETTINGS.showAgentDetails
+      : Boolean(source.showAgentDetails),
     reducedMotion: source.reducedMotion === undefined
       ? DEFAULT_SETTINGS.reducedMotion
       : Boolean(source.reducedMotion),
     pluginOnboardingShown: Boolean(source.pluginOnboardingShown),
+    onboardingCompleted: Boolean(source.onboardingCompleted),
     zone: normalizeZone(source.zone),
   };
 }
@@ -89,6 +105,7 @@ class SettingsStore {
     this.filePath = filePath;
     this.value = normalizeSettings(DEFAULT_SETTINGS);
     this.loadError = null;
+    this.updateQueue = Promise.resolve();
   }
 
   async load() {
@@ -104,20 +121,28 @@ class SettingsStore {
   }
 
   async update(patch) {
-    this.value = mergeSettings(this.value, patch);
-    await this.#write();
-    return this.snapshot();
+    const operation = this.updateQueue.then(async () => {
+      this.value = mergeSettings(this.value, patch);
+      await this.#write(this.value);
+      return this.snapshot();
+    });
+    this.updateQueue = operation.catch(() => {});
+    return operation;
   }
 
   snapshot() {
     return structuredClone(this.value);
   }
 
-  async #write() {
+  async #write(value) {
     await fs.mkdir(path.dirname(this.filePath), { recursive: true });
-    const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
-    await fs.writeFile(temporaryPath, `${JSON.stringify(this.value, null, 2)}\n`, 'utf8');
-    await fs.rename(temporaryPath, this.filePath);
+    const temporaryPath = `${this.filePath}.${process.pid}.${randomUUID()}.tmp`;
+    try {
+      await fs.writeFile(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+      await fs.rename(temporaryPath, this.filePath);
+    } finally {
+      await fs.rm(temporaryPath, { force: true });
+    }
   }
 }
 

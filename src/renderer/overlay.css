@@ -30,16 +30,17 @@ body {
 
 .avatar {
   --avatar-size: 118px;
+  --label-height: 34px;
   position: absolute;
   top: 0;
   left: 0;
   width: var(--avatar-size);
-  height: calc(var(--avatar-size) * 1.08334 + 34px);
+  height: calc(var(--avatar-size) * 1.08334 + var(--label-height));
   transform-origin: 50% 100%;
   pointer-events: auto;
   cursor: default;
   will-change: transform;
-  contain: layout paint style;
+  contain: layout style;
 }
 
 body.is-interactive .avatar {
@@ -79,13 +80,14 @@ body.is-interactive .avatar.is-dragging {
   position: absolute;
   left: 50%;
   bottom: 0;
-  max-width: calc(var(--avatar-size) + 48px);
+  min-width: min(calc(var(--avatar-size) + 24px), 190px);
+  max-width: calc(var(--avatar-size) + 82px);
   padding: 4px 8px 5px;
   overflow: hidden;
   color: rgb(255 255 255 / 94%);
   font-size: 11px;
   font-weight: 650;
-  line-height: 1;
+  line-height: 1.1;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -98,12 +100,34 @@ body.is-interactive .avatar.is-dragging {
   backdrop-filter: blur(8px);
 }
 
+.agent-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avatar.is-root .agent-label {
+  min-width: min(calc(var(--avatar-size) + 52px), 220px);
+  max-width: 280px;
+}
+
+.agent-detail {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: rgb(186 242 222 / 85%);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  text-overflow: ellipsis;
+}
+
 .avatar:hover .agent-label,
 .avatar.status-attention .agent-label {
   opacity: 1;
 }
 
-.avatar.is-root .agent-label::before {
+.avatar.is-root .agent-name::before {
   content: "◆";
   margin-right: 5px;
   color: #80f0c7;

@@ -14,7 +14,7 @@ test('repo marketplace and plugin identifiers match', () => {
   const entry = marketplace.plugins.find((plugin) => plugin.name === manifest.name);
   assert.ok(entry);
   assert.equal(entry.source.path, './plugins/codex-avatars');
-  assert.equal(manifest.version, '0.3.0');
+  assert.equal(manifest.version, '0.4.0');
   const packageManifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json')));
   assert.equal(packageManifest.version, manifest.version);
 });

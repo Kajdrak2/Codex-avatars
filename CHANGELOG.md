@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-08
+
+### Added
+
+- English-first settings with an explicit English/French language menu; generated avatar briefs follow the selected language.
+- Four-step first-run guide explaining the overlay, plugin, hook trust, avatar creation, and roaming zones.
+- Hatch-pet character brief form that opens a new Codex task with the prompt already prepared, plus a clipboard fallback.
+- Portable `.codexpet` gallery packages with validated, non-overwriting import and export.
+- Screenshot-style desktop rectangle selection for custom roaming zones.
+- Optional model and reasoning-effort details below each agent name.
+- Local task metadata enrichment so collaboration labels such as `UX scout` replace the generic `Default` profile.
+- Main-agent labels from Codex's local task-title index, with a project/session fallback when no title is available.
+- Independent size controls for main agents and subagents, including migration from the former shared size.
+
+### Fixed
+
+- Agents are distributed across selected displays and cycle between zones instead of being pinned to the primary display.
+- Demo mode is now a start/stop toggle and always clears its synthetic agents.
+- Pets added while the companion was closed are detected by the automatic-enable preference on the next launch.
+- Passive mode remains recoverable from settings, the tray icon, and `Ctrl+Alt+A`.
+
 ## [0.3.0] - 2026-08-08
 
 ### Added

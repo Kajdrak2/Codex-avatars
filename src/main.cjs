@@ -7,6 +7,7 @@ const {
   app,
   BrowserWindow,
   clipboard,
+  dialog,
   globalShortcut,
   ipcMain,
   Menu,
@@ -17,7 +18,10 @@ const {
   Tray,
 } = require('electron');
 const { AgentStore } = require('./core/agent-store.cjs');
+const { AgentMetadataResolver } = require('./core/agent-metadata.cjs');
 const { discoverAvatars, readWebpDimensions } = require('./core/avatar-library.cjs');
+const { reconcileAvatarSelection } = require('./core/avatar-selection.cjs');
+const { buildAvatarPrompt, codexNewThreadUrl } = require('./core/codex-launch.cjs');
 const { normalizeHookEvent } = require('./core/event-normalizer.cjs');
 const { createEventServer } = require('./core/pipe-server.cjs');
 const {
@@ -25,6 +29,7 @@ const {
   pluginDeepLink,
 } = require('./core/plugin-integration.cjs');
 const { resolveRoamingZone, serializeDisplay } = require('./core/roaming-zone.cjs');
+const { exportPetPackage, importPetPackage } = require('./core/pet-packages.cjs');
 const { SettingsStore } = require('./core/settings-store.cjs');
 const {
   hooksStatus,
@@ -42,13 +47,23 @@ protocol.registerSchemesAsPrivileged([{
 }]);
 
 const store = new AgentStore();
-const eventServer = createEventServer(handlePayload);
 const captureArgument = findArgument('--capture=');
 const settingsCaptureArgument = findArgument('--capture-settings=');
+const settingsScrollArgument = findArgument('--settings-scroll=');
+const onboardingCapture = process.argv.includes('--capture-onboarding');
+const zonePickerCaptureArgument = findArgument('--capture-zone-picker=');
+const profileArgument = findArgument('--profile=');
 const capturePath = captureArgument ? path.resolve(process.cwd(), captureArgument) : null;
 const settingsCapturePath = settingsCaptureArgument
   ? path.resolve(process.cwd(), settingsCaptureArgument)
   : null;
+const zonePickerCapturePath = zonePickerCaptureArgument
+  ? path.resolve(process.cwd(), zonePickerCaptureArgument)
+  : null;
+if (profileArgument) app.setPath('userData', path.resolve(process.cwd(), profileArgument));
+const eventServer = createEventServer(handlePayload, profileArgument
+  ? { pipeName: `codex-avatars-preview-${process.pid}` }
+  : undefined);
 const backgroundLaunch = process.argv.includes('--background');
 const commandLineAction = process.argv.includes('--install-hooks')
   ? 'install'
@@ -60,6 +75,9 @@ let settingsStore = null;
 let settings = null;
 let overlayWindow = null;
 let settingsWindow = null;
+let zonePickerWindow = null;
+let zonePickerResolve = null;
+let zonePickerBounds = null;
 let tray = null;
 let cleanupTimer = null;
 let avatarRefreshTimer = null;
@@ -68,6 +86,11 @@ let avatarErrors = [];
 let assetPaths = new Map();
 let overlayHitTest = false;
 let isQuitting = false;
+let metadataResolver = null;
+const pendingMetadata = new Set();
+const resolvedMetadata = new Set();
+let demoSessionId = null;
+const demoTimers = new Set();
 
 function findArgument(prefix) {
   const argument = process.argv.find((value) => value.startsWith(prefix));
@@ -133,8 +156,7 @@ function currentZone() {
   return resolveRoamingZone(settings?.zone, currentDisplays());
 }
 
-async function refreshAvatarLibrary(options = {}) {
-  const previousIds = new Set(avatarRecords.map((avatar) => avatar.id));
+async function refreshAvatarLibrary() {
   const result = await discoverAvatars([
     { path: path.join(codexHomePath(), 'pets'), source: 'codex-pet' },
     { path: path.join(app.getAppPath(), 'assets', 'avatars'), source: 'bundled' },
@@ -164,27 +186,8 @@ async function refreshAvatarLibrary(options = {}) {
 
   if (settingsStore && settings) {
     const allIds = valid.map((avatar) => avatar.id);
-    let enabledIds = settings.enabledAvatarIds.filter((id) => allIds.includes(id));
-    let shouldPersist = enabledIds.length !== settings.enabledAvatarIds.length;
-
-    if (!settings.avatarSelectionInitialized && allIds.length > 0) {
-      enabledIds = allIds;
-      shouldPersist = true;
-      settings = await settingsStore.update({
-        enabledAvatarIds: enabledIds,
-        avatarSelectionInitialized: true,
-      });
-    } else if (!options.initial && settings.autoEnableNewAvatars) {
-      const added = allIds.filter((id) => !previousIds.has(id));
-      if (added.length > 0) {
-        enabledIds = [...new Set([...enabledIds, ...added])];
-        shouldPersist = true;
-      }
-    }
-
-    if (shouldPersist && settings.enabledAvatarIds.join('\0') !== enabledIds.join('\0')) {
-      settings = await settingsStore.update({ enabledAvatarIds: enabledIds });
-    }
+    const patch = reconcileAvatarSelection(settings, allIds);
+    if (Object.keys(patch).length > 0) settings = await settingsStore.update(patch);
   }
 
   broadcast('avatars:library', { avatars: publicAvatars(), errors: avatarErrors });
@@ -213,10 +216,48 @@ function broadcastSettings() {
   });
 }
 
+function metadataTarget(event) {
+  if (event.kind === 'agent.started' || event.kind === 'agent.stopped') {
+    return { id: event.agentId, isRoot: false };
+  }
+  if (event.kind.startsWith('session.')) return { id: event.sessionId, isRoot: true };
+  return null;
+}
+
+function enrichMetadata(event) {
+  if (!metadataResolver || event.sessionId.startsWith('demo-')) return;
+  const target = metadataTarget(event);
+  if (!target || !target.id) return;
+  const key = `${event.sessionId}:${target.id}`;
+  if (pendingMetadata.has(key) || resolvedMetadata.has(key)) return;
+  pendingMetadata.add(key);
+  void metadataResolver.resolve(target.id, { isRoot: target.isRoot }).then((metadata) => {
+    if (!metadata) return;
+    const applied = store.apply({
+      kind: 'agent.metadata',
+      sessionId: event.sessionId,
+      agentId: target.id,
+      isRoot: target.isRoot,
+      agentLabel: metadata.label,
+      agentNickname: metadata.nickname,
+      model: metadata.model,
+      effort: metadata.effort,
+      timestamp: Date.now(),
+    });
+    if (applied) {
+      resolvedMetadata.add(key);
+      broadcastState();
+    }
+  }).finally(() => pendingMetadata.delete(key));
+}
+
 function handlePayload(payload) {
   const event = normalizeHookEvent(payload);
   if ((capturePath || settingsCapturePath) && event) process.stderr.write(`[avatars] event=${event.kind}\n`);
-  if (event && store.apply(event)) broadcastState();
+  if (event && store.apply(event)) {
+    broadcastState();
+    enrichMetadata(event);
+  }
 }
 
 function attachWindowDiagnostics(window, label) {
@@ -277,7 +318,7 @@ function createOverlayWindow() {
     roundedCorners: false,
     icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
+      preload: path.join(__dirname, 'preload-overlay.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -289,6 +330,7 @@ function createOverlayWindow() {
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlayWindow.setWindowButtonVisibility?.(false);
   overlayWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  overlayWindow.webContents.on('will-navigate', (event) => event.preventDefault());
   attachWindowDiagnostics(overlayWindow, 'overlay');
   overlayWindow.setIgnoreMouseEvents(true, { forward: true });
   overlayWindow.loadFile(path.join(__dirname, 'renderer', 'overlay.html'));
@@ -318,6 +360,83 @@ async function rebuildOverlayWindow() {
   createOverlayWindow();
 }
 
+function settleZonePicker(rectangle) {
+  if (!zonePickerResolve) return;
+  const resolve = zonePickerResolve;
+  const bounds = zonePickerBounds;
+  zonePickerResolve = null;
+  zonePickerBounds = null;
+  if (zonePickerWindow && !zonePickerWindow.isDestroyed()) zonePickerWindow.destroy();
+  zonePickerWindow = null;
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    settingsWindow.show();
+    settingsWindow.focus();
+  }
+  if (!rectangle || !bounds) {
+    resolve(null);
+    return;
+  }
+  resolve({
+    x: bounds.x + Math.round(Number(rectangle.x) || 0),
+    y: bounds.y + Math.round(Number(rectangle.y) || 0),
+    width: Math.max(160, Math.round(Number(rectangle.width) || 0)),
+    height: Math.max(120, Math.round(Number(rectangle.height) || 0)),
+  });
+}
+
+function selectCustomZone() {
+  if (zonePickerWindow && !zonePickerWindow.isDestroyed()) {
+    zonePickerWindow.focus();
+    return Promise.resolve(null);
+  }
+  const allDisplays = resolveRoamingZone({ mode: 'all' }, currentDisplays());
+  zonePickerBounds = allDisplays.windowBounds;
+  if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.hide();
+
+  zonePickerWindow = new BrowserWindow({
+    ...zonePickerBounds,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    hasShadow: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    show: false,
+    roundedCorners: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-zone-picker.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  zonePickerWindow.setAlwaysOnTop(true, 'screen-saver');
+  zonePickerWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  zonePickerWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  zonePickerWindow.webContents.on('will-navigate', (event) => event.preventDefault());
+  attachWindowDiagnostics(zonePickerWindow, 'zone-picker');
+  zonePickerWindow.loadFile(path.join(__dirname, 'renderer', 'zone-picker.html'), {
+    query: { language: settings.language },
+  });
+  zonePickerWindow.once('ready-to-show', () => {
+    if (!zonePickerWindow || zonePickerWindow.isDestroyed()) return;
+    zonePickerWindow.show();
+    zonePickerWindow.focus();
+  });
+  zonePickerWindow.on('closed', () => {
+    zonePickerWindow = null;
+    if (zonePickerResolve) settleZonePicker(null);
+  });
+  return new Promise((resolve) => {
+    zonePickerResolve = resolve;
+  });
+}
+
 function createSettingsWindow() {
   if (settingsWindow && !settingsWindow.isDestroyed()) return settingsWindow;
   settingsWindow = new BrowserWindow({
@@ -341,6 +460,7 @@ function createSettingsWindow() {
     if (url.startsWith('https://')) void shell.openExternal(url);
     return { action: 'deny' };
   });
+  settingsWindow.webContents.on('will-navigate', (event) => event.preventDefault());
   attachWindowDiagnostics(settingsWindow, 'settings');
   settingsWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   settingsWindow.on('close', (event) => {
@@ -352,10 +472,14 @@ function createSettingsWindow() {
     settingsWindow = null;
   });
   settingsWindow.once('ready-to-show', () => {
-    if (!backgroundLaunch && !capturePath) settingsWindow.show();
+    if (!backgroundLaunch && !capturePath && !zonePickerCapturePath) settingsWindow.show();
     if (settingsCapturePath) {
       settingsWindow.show();
-      setTimeout(() => void captureAndQuit(settingsWindow, settingsCapturePath), 900);
+      setTimeout(async () => {
+        const scroll = Math.max(0, Math.min(10_000, Number(settingsScrollArgument) || 0));
+        if (scroll > 0) await settingsWindow.webContents.executeJavaScript(`window.scrollTo(0, ${scroll})`);
+        setTimeout(() => void captureAndQuit(settingsWindow, settingsCapturePath), 120);
+      }, 780);
     }
   });
   return settingsWindow;
@@ -390,7 +514,7 @@ function createTray() {
 
 function rebuildTrayMenu() {
   if (!tray || !settings) return;
-  const french = app.getLocale().toLowerCase().startsWith('fr');
+  const french = settings.language === 'fr';
   tray.setContextMenu(Menu.buildFromTemplate([
     {
       label: french ? 'Ouvrir les réglages' : 'Open settings',
@@ -404,8 +528,10 @@ function rebuildTrayMenu() {
     },
     { type: 'separator' },
     {
-      label: french ? 'Lancer la démo' : 'Run demo',
-      click: runDemo,
+      label: demoSessionId
+        ? (french ? 'Arrêter la démo' : 'Stop demo')
+        : (french ? 'Lancer la démo' : 'Run demo'),
+      click: toggleDemo,
     },
     {
       label: french ? 'Actualiser les avatars' : 'Refresh avatars',
@@ -423,23 +549,55 @@ function rebuildTrayMenu() {
 }
 
 function runDemo() {
+  if (demoSessionId) return { running: true, sessionId: demoSessionId };
   const sessionId = `demo-${Date.now()}`;
+  demoSessionId = sessionId;
   const base = { session_id: sessionId, cwd: 'C:\\Projects\\tiny-space-station' };
-  const emit = (delay, event) => setTimeout(() => handlePayload({ ...base, ...event }), delay);
+  const emit = (delay, event) => {
+    const timer = setTimeout(() => {
+      demoTimers.delete(timer);
+      if (demoSessionId === sessionId) handlePayload({ ...base, ...event });
+    }, delay);
+    demoTimers.add(timer);
+  };
 
-  emit(0, { hook_event_name: 'SessionStart' });
-  emit(160, { hook_event_name: 'SubagentStart', agent_id: `${sessionId}-1`, agent_type: 'explorer' });
-  emit(360, { hook_event_name: 'SubagentStart', agent_id: `${sessionId}-2`, agent_type: 'ui_builder' });
-  emit(560, { hook_event_name: 'SubagentStart', agent_id: `${sessionId}-3`, agent_type: 'test_runner' });
+  emit(0, { hook_event_name: 'SessionStart', agent_name: 'Tiny Space Station', model: 'gpt-5.6-sol', reasoning_effort: 'high' });
+  emit(80, { hook_event_name: 'SubagentStart', agent_id: `${sessionId}-1`, agent_type: 'default', agent_name: 'Explorer', model: 'gpt-5.6-terra', reasoning_effort: 'medium' });
+  emit(240, { hook_event_name: 'SubagentStart', agent_id: `${sessionId}-2`, agent_type: 'default', agent_name: 'UI builder', model: 'gpt-5.6-terra', reasoning_effort: 'high' });
+  emit(400, { hook_event_name: 'SubagentStart', agent_id: `${sessionId}-3`, agent_type: 'default', agent_name: 'Test runner', model: 'gpt-5.6-terra', reasoning_effort: 'medium' });
   emit(5_500, { hook_event_name: 'PermissionRequest' });
   emit(7_000, { hook_event_name: 'UserPromptSubmit' });
   emit(10_000, { hook_event_name: 'SubagentStop', agent_id: `${sessionId}-1`, agent_type: 'explorer' });
   emit(10_400, { hook_event_name: 'SubagentStop', agent_id: `${sessionId}-2`, agent_type: 'ui_builder' });
   emit(10_800, { hook_event_name: 'SubagentStop', agent_id: `${sessionId}-3`, agent_type: 'test_runner' });
   emit(11_200, { hook_event_name: 'Stop' });
+  const endTimer = setTimeout(() => {
+    demoTimers.delete(endTimer);
+    if (demoSessionId === sessionId) stopDemo();
+  }, 13_000);
+  demoTimers.add(endTimer);
+  broadcast('avatars:demo', { running: true, sessionId });
+  rebuildTrayMenu();
+  return { running: true, sessionId };
 }
 
-async function bootstrapPayload() {
+function stopDemo() {
+  for (const timer of demoTimers) clearTimeout(timer);
+  demoTimers.clear();
+  const sessionId = demoSessionId;
+  demoSessionId = null;
+  if (sessionId) store.removeSession(sessionId);
+  broadcastState();
+  broadcast('avatars:demo', { running: false, sessionId: null });
+  rebuildTrayMenu();
+  return { running: false, sessionId: null };
+}
+
+function toggleDemo() {
+  return demoSessionId ? stopDemo() : runDemo();
+}
+
+async function settingsBootstrapPayload() {
   let pluginAvailable = true;
   try {
     await fs.access(pluginMarketplacePath());
@@ -450,57 +608,169 @@ async function bootstrapPayload() {
     state: store.snapshot(),
     settings,
     avatars: publicAvatars(),
-    avatarErrors,
     displays: currentDisplays(),
     zone: currentZone(),
     launchAtLogin: app.getLoginItemSettings().openAtLogin,
     hooks: await hooksStatus(),
-    shortcut: 'Ctrl+Alt+A',
     version: app.getVersion(),
-    petDirectory: path.join(codexHomePath(), 'pets'),
+    settingsCapture: Boolean(settingsCapturePath) && !onboardingCapture,
+    demo: { running: Boolean(demoSessionId), sessionId: demoSessionId },
     plugin: {
       available: pluginAvailable,
-      onboardingShown: settings.pluginOnboardingShown,
+      onboardingCompleted: settings.onboardingCompleted,
     },
   };
 }
 
+function overlayBootstrapPayload() {
+  return {
+    state: store.snapshot(),
+    settings,
+    avatars: publicAvatars(),
+    zone: currentZone(),
+  };
+}
+
+function isWindowSender(event, window) {
+  return Boolean(
+    window
+    && !window.isDestroyed()
+    && !window.webContents.isDestroyed()
+    && event.sender === window.webContents,
+  );
+}
+
+function requireWindowSender(event, window, role) {
+  if (!isWindowSender(event, window)) throw new Error(`IPC access denied for ${role}.`);
+}
+
 function registerIpc() {
-  ipcMain.handle('avatars:get-bootstrap', bootstrapPayload);
-  ipcMain.handle('avatars:get-state', () => store.snapshot());
-  ipcMain.handle('avatars:get-settings', () => settings);
-  ipcMain.handle('avatars:update-settings', (_event, patch) => applySettingsPatch(patch));
-  ipcMain.handle('avatars:set-passive', (_event, value) => applySettingsPatch({ passive: Boolean(value) }));
-  ipcMain.handle('avatars:set-launch-at-login', (_event, value) => {
+  ipcMain.handle('avatars:get-settings-bootstrap', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return settingsBootstrapPayload();
+  });
+  ipcMain.handle('avatars:get-overlay-bootstrap', (event) => {
+    requireWindowSender(event, overlayWindow, 'overlay');
+    return overlayBootstrapPayload();
+  });
+  ipcMain.handle('avatars:update-settings', (event, patch) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return applySettingsPatch(patch);
+  });
+  ipcMain.handle('avatars:set-launch-at-login', (event, value) => {
+    requireWindowSender(event, settingsWindow, 'settings');
     app.setLoginItemSettings({
       openAtLogin: Boolean(value),
       args: ['--background'],
     });
     return app.getLoginItemSettings().openAtLogin;
   });
-  ipcMain.handle('avatars:install-hooks', () => installHooks(hookScriptPath()));
-  ipcMain.handle('avatars:uninstall-hooks', () => uninstallHooks());
-  ipcMain.handle('avatars:hooks-status', () => hooksStatus());
-  ipcMain.handle('avatars:refresh-library', () => refreshAvatarLibrary());
-  ipcMain.handle('avatars:show-settings', () => showSettingsWindow());
+  ipcMain.handle('avatars:install-hooks', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return installHooks(hookScriptPath());
+  });
+  ipcMain.handle('avatars:uninstall-hooks', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return uninstallHooks();
+  });
+  ipcMain.handle('avatars:hooks-status', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return hooksStatus();
+  });
+  ipcMain.handle('avatars:refresh-library', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return refreshAvatarLibrary();
+  });
   ipcMain.handle('avatars:overlay-hit-test', (event, value) => {
-    if (!overlayWindow || event.sender !== overlayWindow.webContents) return false;
+    requireWindowSender(event, overlayWindow, 'overlay');
     overlayHitTest = Boolean(value);
     updateOverlayInputMode();
     return !settings.passive && overlayHitTest;
   });
-  ipcMain.handle('avatars:copy-create-prompt', () => {
-    const prompt = 'Utilise $create-codex-avatar pour créer un nouvel avatar Codex Avatars, puis installe-le dans ma bibliothèque locale.';
+  ipcMain.handle('avatars:create-avatar', async (event, brief) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    const prompt = buildAvatarPrompt(brief, settings.language);
+    const url = codexNewThreadUrl(prompt);
+    try {
+      await shell.openExternal(url);
+      return { opened: true, copied: false, url };
+    } catch (error) {
+      clipboard.writeText(prompt);
+      return { opened: false, copied: true, message: error.message };
+    }
+  });
+  ipcMain.handle('avatars:copy-create-prompt', (event, brief) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    const prompt = buildAvatarPrompt(brief, settings.language);
     clipboard.writeText(prompt);
     return prompt;
   });
-  ipcMain.handle('avatars:open-pets-doc', () => shell.openExternal('https://learn.chatgpt.com/docs/pets'));
-  ipcMain.handle('avatars:open-plugin', () => openPluginInCodex());
-  ipcMain.handle('avatars:open-pet-directory', () => shell.openPath(path.join(codexHomePath(), 'pets')));
-  ipcMain.handle('avatars:demo', () => runDemo());
-  ipcMain.handle('avatars:quit', () => {
-    isQuitting = true;
-    app.quit();
+  ipcMain.handle('avatars:pick-zone', async (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    const rectangle = await selectCustomZone();
+    if (!rectangle) return { cancelled: true };
+    const next = await applySettingsPatch({ zone: { mode: 'custom', custom: rectangle } }, { rebuildOverlay: true });
+    return { cancelled: false, rectangle, settings: next };
+  });
+  ipcMain.handle('avatars:zone-picker-complete', (event, rectangle) => {
+    requireWindowSender(event, zonePickerWindow, 'zone picker');
+    settleZonePicker(rectangle);
+    return true;
+  });
+  ipcMain.handle('avatars:zone-picker-cancel', (event) => {
+    requireWindowSender(event, zonePickerWindow, 'zone picker');
+    settleZonePicker(null);
+    return true;
+  });
+  ipcMain.handle('avatars:import-pet', async (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    const options = {
+      title: settings.language === 'fr' ? 'Importer un Pet' : 'Import a Pet',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Codex Pet package', extensions: ['codexpet', 'zip'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+    };
+    const result = settingsWindow && !settingsWindow.isDestroyed()
+      ? await dialog.showOpenDialog(settingsWindow, options)
+      : await dialog.showOpenDialog(options);
+    if (result.canceled || !result.filePaths[0]) return { cancelled: true };
+    const imported = await importPetPackage(result.filePaths[0], path.join(codexHomePath(), 'pets'));
+    await refreshAvatarLibrary();
+    return { cancelled: false, imported };
+  });
+  ipcMain.handle('avatars:export-pet', async (event, avatarId) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    const record = avatarRecords.find((avatar) => avatar.id === avatarId);
+    if (!record) throw new Error('The selected Pet is no longer available.');
+    const options = {
+      title: settings.language === 'fr' ? 'Partager ce Pet' : 'Share this Pet',
+      defaultPath: `${record.id}.codexpet`,
+      filters: [{ name: 'Codex Pet package', extensions: ['codexpet'] }],
+    };
+    const result = settingsWindow && !settingsWindow.isDestroyed()
+      ? await dialog.showSaveDialog(settingsWindow, options)
+      : await dialog.showSaveDialog(options);
+    if (result.canceled || !result.filePath) return { cancelled: true };
+    await exportPetPackage(record, result.filePath);
+    return { cancelled: false, filePath: result.filePath };
+  });
+  ipcMain.handle('avatars:open-pets-doc', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return shell.openExternal('https://learn.chatgpt.com/docs/pets');
+  });
+  ipcMain.handle('avatars:open-plugin', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return openPluginInCodex();
+  });
+  ipcMain.handle('avatars:open-pet-directory', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return shell.openPath(path.join(codexHomePath(), 'pets'));
+  });
+  ipcMain.handle('avatars:demo', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return toggleDemo();
   });
 }
 
@@ -508,6 +778,7 @@ async function startApplication() {
   app.setAppUserModelId('dev.codexavatars.desktop');
   settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'settings.json'));
   settings = await settingsStore.load();
+  metadataResolver = new AgentMetadataResolver(path.join(codexHomePath(), 'sessions'));
 
   protocol.handle('codex-avatar', async (request) => {
     try {
@@ -524,22 +795,19 @@ async function startApplication() {
   });
 
   registerIpc();
-  await refreshAvatarLibrary({ initial: true });
+  await refreshAvatarLibrary();
   await eventServer.listen();
   createTray();
   createOverlayWindow();
   createSettingsWindow();
 
-  if (
-    app.isPackaged
-    && !backgroundLaunch
-    && !capturePath
-    && !settingsCapturePath
-    && !settings.pluginOnboardingShown
-  ) {
-    settings = await settingsStore.update({ pluginOnboardingShown: true });
-    broadcastSettings();
-    setTimeout(() => void openPluginInCodex(), 1_100);
+  if (zonePickerCapturePath) {
+    void selectCustomZone();
+    setTimeout(() => {
+      if (zonePickerWindow && !zonePickerWindow.isDestroyed()) {
+        void captureAndQuit(zonePickerWindow, zonePickerCapturePath);
+      }
+    }, 850);
   }
 
   globalShortcut.register('CommandOrControl+Alt+A', () => {
@@ -590,6 +858,8 @@ app.on('before-quit', () => {
 app.on('will-quit', () => {
   if (cleanupTimer) clearInterval(cleanupTimer);
   if (avatarRefreshTimer) clearInterval(avatarRefreshTimer);
+  for (const timer of demoTimers) clearTimeout(timer);
+  demoTimers.clear();
   globalShortcut.unregisterAll();
   void eventServer.close();
 });
