@@ -15,9 +15,10 @@ test('normalizes unsafe or out-of-range settings', () => {
   });
   assert.equal(settings.mainAvatarSize, 180);
   assert.equal(settings.subagentAvatarSize, 180);
-  assert.equal(settings.schemaVersion, 5);
+  assert.equal(settings.schemaVersion, 6);
   assert.equal(settings.language, 'en');
   assert.equal(settings.showAgentDetails, true);
+  assert.equal(settings.showDormantAgents, false);
   assert.equal(settings.onboardingCompleted, false);
   assert.equal(settings.pluginOnboardingShown, false);
   assert.deepEqual(settings.enabledAvatarIds, ['minuit']);
@@ -72,4 +73,15 @@ test('migrates the former shared avatar size to both agent roles', () => {
   assert.equal(settings.mainAvatarSize, 126);
   assert.equal(settings.subagentAvatarSize, 126);
   assert.equal('avatarSize' in settings, false);
+});
+
+test('persists the dormant-agent visibility preference', async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-avatars-dormant-setting-'));
+  const filePath = path.join(directory, 'settings.json');
+  const store = new SettingsStore(filePath);
+  await store.load();
+  await store.update({ showDormantAgents: true });
+  const reloaded = new SettingsStore(filePath);
+  assert.equal((await reloaded.load()).showDormantAgents, true);
+  await fs.rm(directory, { recursive: true, force: true });
 });

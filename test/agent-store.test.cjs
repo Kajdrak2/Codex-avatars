@@ -4,8 +4,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { AgentStore } = require('../src/core/agent-store.cjs');
 
-test('tracks independent subagents and removes them after the completion animation', () => {
-  const store = new AgentStore({ completionGraceMs: 100 });
+test('tracks independent subagents and retains them as bounded dormant agents after completion', () => {
+  const store = new AgentStore({ completionGraceMs: 100, dormantRetentionMs: 500, maxDormantAgents: 10 });
   store.apply({ kind: 'session.started', sessionId: 's1', project: 'alpha', timestamp: 1 });
   store.apply({ kind: 'agent.started', sessionId: 's1', agentId: 'a1', agentType: 'reviewer', timestamp: 2 });
   store.apply({ kind: 'agent.started', sessionId: 's1', agentId: 'a2', agentType: 'tester', timestamp: 3 });
@@ -21,7 +21,49 @@ test('tracks independent subagents and removes them after the completion animati
   assert.equal(snapshot.sessions[0].agents.find((agent) => agent.id === 'a1').status, 'done');
   assert.equal(store.cleanup(109), false);
   assert.equal(store.cleanup(110), true);
+  assert.equal(store.snapshot().sessions[0].agents.find((agent) => agent.id === 'a1').status, 'dormant');
+  assert.equal(store.cleanup(609), false);
+  assert.equal(store.cleanup(610), true);
   assert.equal(store.snapshot().sessions[0].agents.some((agent) => agent.id === 'a1'), false);
+});
+
+test('expires idle roots but reactivation clears their dormant deadline', () => {
+  const store = new AgentStore({ dormantRetentionMs: 100, maxDormantAgents: 10 });
+  store.apply({ kind: 'session.idle', sessionId: 'sleeping', project: 'alpha', timestamp: 10 });
+  assert.equal(store.snapshot().sessions[0].agents[0].status, 'idle');
+  store.apply({ kind: 'session.working', sessionId: 'sleeping', timestamp: 50 });
+  assert.equal(store.cleanup(500), false);
+  assert.equal(store.snapshot().sessions[0].agents[0].status, 'working');
+});
+
+test('a subagent start wakes an idle main agent', () => {
+  const store = new AgentStore({ dormantRetentionMs: 100 });
+  store.apply({ kind: 'session.idle', sessionId: 'parent', timestamp: 10 });
+  store.apply({ kind: 'agent.started', sessionId: 'parent', agentId: 'child', timestamp: 20 });
+  const [root, child] = store.snapshot().sessions[0].agents;
+  assert.equal(root.status, 'working');
+  assert.equal(child.status, 'working');
+  assert.equal(store.cleanup(1_000), false);
+});
+
+test('an idle root never expires while a subagent is still active', () => {
+  const store = new AgentStore({ dormantRetentionMs: 100, maxDormantAgents: 10 });
+  store.apply({ kind: 'agent.started', sessionId: 'mixed', agentId: 'active-child', timestamp: 10 });
+  store.apply({ kind: 'session.idle', sessionId: 'mixed', timestamp: 20 });
+  assert.equal(store.cleanup(1_000), false);
+  const agents = store.snapshot().sessions[0].agents;
+  assert.equal(agents.find((agent) => agent.isRoot).status, 'idle');
+  assert.equal(agents.find((agent) => !agent.isRoot).status, 'working');
+});
+
+test('evicts the oldest dormant sessions when the cap is exceeded', () => {
+  const store = new AgentStore({ dormantRetentionMs: 10_000, maxDormantAgents: 2 });
+  store.apply({ kind: 'session.idle', sessionId: 'oldest', timestamp: 10 });
+  store.apply({ kind: 'session.idle', sessionId: 'middle', timestamp: 20 });
+  store.apply({ kind: 'session.idle', sessionId: 'newest', timestamp: 30 });
+  assert.equal(store.cleanup(30), true);
+  const ids = store.snapshot().sessions.map((session) => session.id);
+  assert.deepEqual(ids, ['middle', 'newest']);
 });
 
 test('marks the root agent when a session needs attention', () => {

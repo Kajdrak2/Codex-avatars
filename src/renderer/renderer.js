@@ -5,14 +5,17 @@ const api = window.codexAvatars;
 const translations = {
   en: {
     headerSubtitle: 'Independent companions for every Codex agent', language: 'Language', tour: 'Setup guide',
-    active: (count) => count ? `${count} active agent${count > 1 ? 's' : ''}` : 'Waiting for Codex',
+    active: (count, dormant = 0) => count
+      ? `${count} active agent${count > 1 ? 's' : ''}${dormant ? ` · ${dormant} sleeping` : ''}`
+      : (dormant ? `${dormant} sleeping agent${dormant > 1 ? 's' : ''}` : 'Waiting for Codex'),
     controlEyebrow: 'Always available', controlTitle: 'Overlay', passiveTitle: 'Passive mode',
     passiveCopy: 'Clicks pass through avatars. Turn it off here, from the tray icon, or with Ctrl + Alt + A.',
     startupTitle: 'Start with Windows', startupCopy: 'Keeps the invisible companion ready. Codex hooks can also start it on the first event.',
     avatarsEyebrow: 'Local library', avatarsTitle: 'Active avatars',
     avatarsCopy: 'Native Codex Pet v2 packages, independently assigned to main agents and subagents.',
     refresh: 'Refresh', emptyTitle: 'No compatible Pet detected', emptyCopy: 'Create or import a Pet, then refresh this library.',
-    mainAvatarSize: 'Main agent size', subagentAvatarSize: 'Subagent size', labels: 'Show names', agentDetails: 'Show model + effort', autoEnable: 'Automatically enable new Pets',
+    mainAvatarSize: 'Main agent size', subagentAvatarSize: 'Subagent size', labels: 'Show names', agentDetails: 'Show model + effort', dormantAgents: 'Show dormant agents', autoEnable: 'Automatically enable new Pets',
+    dormantAgentsHelp: 'Keep recently idle or completed agents visible in a sleeping state for up to 30 minutes.',
     autoEnableHelp: 'A newly created or imported Pet joins the active rotation. Existing choices are never changed.',
     reduceMotion: 'Reduce movement', codexPet: 'Local Pet', bundled: 'Bundled', enabled: 'Enabled', disabled: 'Disabled', share: 'Share',
     creatorEyebrow: 'Character studio', creatorTitle: 'Create a custom avatar',
@@ -56,14 +59,17 @@ const translations = {
   },
   fr: {
     headerSubtitle: 'Des compagnons indépendants pour chaque agent Codex', language: 'Langue', tour: 'Guide de démarrage',
-    active: (count) => count ? `${count} agent${count > 1 ? 's' : ''} actif${count > 1 ? 's' : ''}` : 'En attente de Codex',
+    active: (count, dormant = 0) => count
+      ? `${count} agent${count > 1 ? 's' : ''} actif${count > 1 ? 's' : ''}${dormant ? ` · ${dormant} endormi${dormant > 1 ? 's' : ''}` : ''}`
+      : (dormant ? `${dormant} agent${dormant > 1 ? 's' : ''} endormi${dormant > 1 ? 's' : ''}` : 'En attente de Codex'),
     controlEyebrow: 'Toujours accessible', controlTitle: 'Overlay', passiveTitle: 'Mode passif',
     passiveCopy: 'Les clics traversent les avatars. Désactivez-le ici, depuis l’icône de zone de notification ou avec Ctrl + Alt + A.',
     startupTitle: 'Démarrer avec Windows', startupCopy: 'Garde le compagnon invisible prêt. Les hooks Codex peuvent aussi le lancer au premier événement.',
     avatarsEyebrow: 'Bibliothèque locale', avatarsTitle: 'Avatars actifs',
     avatarsCopy: 'Packages Codex Pet v2 natifs, attribués indépendamment aux agents principaux et sous-agents.',
     refresh: 'Actualiser', emptyTitle: 'Aucun Pet compatible détecté', emptyCopy: 'Créez ou importez un Pet, puis actualisez la bibliothèque.',
-    mainAvatarSize: 'Taille des agents principaux', subagentAvatarSize: 'Taille des sous-agents', labels: 'Afficher les noms', agentDetails: 'Afficher modèle + effort', autoEnable: 'Activer automatiquement les nouveaux Pets',
+    mainAvatarSize: 'Taille des agents principaux', subagentAvatarSize: 'Taille des sous-agents', labels: 'Afficher les noms', agentDetails: 'Afficher modèle + effort', dormantAgents: 'Afficher les agents dormants', autoEnable: 'Activer automatiquement les nouveaux Pets',
+    dormantAgentsHelp: 'Conserve les agents récemment au repos ou terminés dans un état endormi pendant 30 minutes maximum.',
     autoEnableHelp: 'Un Pet nouvellement créé ou importé rejoint la rotation active. Les choix existants ne sont jamais modifiés.',
     reduceMotion: 'Réduire les mouvements', codexPet: 'Pet local', bundled: 'Inclus', enabled: 'Activé', disabled: 'Désactivé', share: 'Partager',
     creatorEyebrow: 'Studio de personnage', creatorTitle: 'Créer un avatar personnalisé',
@@ -112,7 +118,7 @@ const elements = {
   passive: document.querySelector('#passive-toggle'), startup: document.querySelector('#startup-toggle'), avatarGrid: document.querySelector('#avatar-grid'),
   avatarEmpty: document.querySelector('#avatar-empty'), mainAvatarSize: document.querySelector('#main-avatar-size'), mainAvatarSizeValue: document.querySelector('#main-avatar-size-value'),
   subagentAvatarSize: document.querySelector('#subagent-avatar-size'), subagentAvatarSizeValue: document.querySelector('#subagent-avatar-size-value'),
-  labels: document.querySelector('#labels-toggle'), agentDetails: document.querySelector('#agent-details-toggle'), autoEnable: document.querySelector('#new-avatars-toggle'),
+  labels: document.querySelector('#labels-toggle'), agentDetails: document.querySelector('#agent-details-toggle'), dormantAgents: document.querySelector('#dormant-agents-toggle'), autoEnable: document.querySelector('#new-avatars-toggle'),
   reduceMotion: document.querySelector('#motion-toggle'), displayList: document.querySelector('#display-list'), customActions: document.querySelector('#custom-zone-actions'),
   customSummary: document.querySelector('#custom-zone-summary'), hooksButton: document.querySelector('#legacy-hooks-button'), openPluginButton: document.querySelector('#open-plugin-button'),
   demoButton: document.querySelector('#demo-button'), briefForm: document.querySelector('#avatar-brief-form'), toast: document.querySelector('#toast'),
@@ -127,6 +133,7 @@ let pluginAvailable = false;
 let demoRunning = false;
 let onboardingStep = 0;
 let toastTimer = null;
+let currentAgentState = { sessions: [] };
 
 function c() { return translations[settings?.language === 'fr' ? 'fr' : 'en']; }
 function setText(selector, value) { const element = document.querySelector(selector); if (element) element.textContent = value; }
@@ -139,7 +146,8 @@ function localize() {
     '#control-eyebrow': copy.controlEyebrow, '#control-title': copy.controlTitle, '#passive-title': copy.passiveTitle, '#passive-copy': copy.passiveCopy,
     '#startup-title': copy.startupTitle, '#startup-copy': copy.startupCopy, '#avatars-eyebrow': copy.avatarsEyebrow, '#avatars-title': copy.avatarsTitle,
     '#avatars-copy': copy.avatarsCopy, '#refresh-avatars': copy.refresh, '#avatar-empty-title': copy.emptyTitle, '#avatar-empty-copy': copy.emptyCopy,
-    '#main-avatar-size-title': copy.mainAvatarSize, '#subagent-avatar-size-title': copy.subagentAvatarSize, '#labels-title': copy.labels, '#agent-details-title': copy.agentDetails, '#new-avatars-title': copy.autoEnable,
+    '#main-avatar-size-title': copy.mainAvatarSize, '#subagent-avatar-size-title': copy.subagentAvatarSize, '#labels-title': copy.labels, '#agent-details-title': copy.agentDetails,
+    '#dormant-agents-title': copy.dormantAgents, '#dormant-agents-help': copy.dormantAgentsHelp, '#new-avatars-title': copy.autoEnable,
     '#new-avatars-help': copy.autoEnableHelp, '#motion-title': copy.reduceMotion, '#creator-eyebrow': copy.creatorEyebrow, '#creator-title': copy.creatorTitle,
     '#creator-copy': copy.creatorCopy, '#brief-name-label': copy.briefName, '#brief-style-label': copy.briefStyle, '#brief-appearance-label': copy.briefAppearance,
     '#brief-appearance-help': copy.briefAppearanceHelp, '#brief-personality-label': copy.briefPersonality, '#brief-palette-label': copy.briefPalette,
@@ -286,6 +294,7 @@ function renderSettings() {
   elements.subagentAvatarSizeValue.textContent = `${settings.subagentAvatarSize}px`;
   elements.labels.checked = settings.showLabels;
   elements.agentDetails.checked = settings.showAgentDetails;
+  elements.dormantAgents.checked = settings.showDormantAgents;
   elements.autoEnable.checked = settings.autoEnableNewAvatars;
   elements.reduceMotion.checked = settings.reducedMotion;
   const radio = document.querySelector(`input[name="zone-mode"][value="${settings.zone.mode}"]`);
@@ -295,11 +304,17 @@ function renderSettings() {
   renderAvatarGrid();
   renderDisplays();
   renderCustomZone();
+  updateActiveCount(currentAgentState);
 }
 
 function updateActiveCount(state) {
-  const count = (state?.sessions || []).reduce((sum, session) => sum + session.agents.length, 0);
-  elements.activeCount.textContent = c().active(count);
+  currentAgentState = state || { sessions: [] };
+  const agents = currentAgentState.sessions.flatMap((session) => session.agents || []);
+  const count = agents.filter((agent) => ['working', 'attention'].includes(agent.status)).length;
+  const dormant = settings?.showDormantAgents
+    ? agents.filter((agent) => ['idle', 'dormant'].includes(agent.status)).length
+    : 0;
+  elements.activeCount.textContent = c().active(count, dormant);
   elements.activeCount.classList.toggle('is-active', count > 0);
 }
 
@@ -337,6 +352,7 @@ elements.subagentAvatarSize.addEventListener('input', () => { elements.subagentA
 elements.subagentAvatarSize.addEventListener('change', () => void save({ subagentAvatarSize: Number(elements.subagentAvatarSize.value) }));
 elements.labels.addEventListener('change', () => void save({ showLabels: elements.labels.checked }));
 elements.agentDetails.addEventListener('change', () => void save({ showAgentDetails: elements.agentDetails.checked }));
+elements.dormantAgents.addEventListener('change', () => void save({ showDormantAgents: elements.dormantAgents.checked }));
 elements.autoEnable.addEventListener('change', () => void save({ autoEnableNewAvatars: elements.autoEnable.checked }));
 elements.reduceMotion.addEventListener('change', () => void save({ reducedMotion: elements.reduceMotion.checked }));
 

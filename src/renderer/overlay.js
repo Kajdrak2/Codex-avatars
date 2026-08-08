@@ -95,11 +95,14 @@ function activeAvatarRecords() {
 }
 
 function flattenAgents() {
-  return (snapshot.sessions || []).flatMap((session) => session.agents.map((agent) => ({
+  const agents = (snapshot.sessions || []).flatMap((session) => session.agents.map((agent) => ({
     ...agent,
     project: session.project,
     sessionStatus: session.status,
   })));
+  return settings?.showDormantAgents
+    ? agents
+    : agents.filter((agent) => !['idle', 'dormant'].includes(agent.status));
 }
 
 function createActor(agent, avatar, index) {
@@ -198,7 +201,7 @@ function frameIndex(animation, time) {
 function animationFor(actor, moving) {
   if (actor.agent.status === 'attention') return animations.waiting;
   if (actor.agent.status === 'done') return animations.wave;
-  if (actor.agent.status === 'idle') return animations.idle;
+  if (['idle', 'dormant'].includes(actor.agent.status)) return animations.idle;
   if (moving && actor.velocityX > 4) return animations.right;
   if (moving && actor.velocityX < -4) return animations.left;
   return animations.working;
@@ -215,6 +218,11 @@ function applySpriteFrame(actor, time, moving) {
 
 function moveActor(actor, deltaSeconds, time) {
   if (actor.dragging) return false;
+  if (['idle', 'dormant'].includes(actor.agent.status)) {
+    actor.velocityX = 0;
+    actor.velocityY = 0;
+    return false;
+  }
   const reduced = settings?.reducedMotion || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduced) return false;
 
@@ -290,6 +298,7 @@ function animate(time) {
 
 function updateInteractiveClass() {
   document.body.classList.toggle('is-interactive', settings && !settings.passive);
+  document.body.classList.toggle('is-reduced-motion', Boolean(settings?.reducedMotion));
 }
 
 document.addEventListener('mousemove', (event) => {

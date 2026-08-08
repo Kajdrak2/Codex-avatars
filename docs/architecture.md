@@ -63,6 +63,8 @@ The roaming resolver supports:
 
 Actors receive deterministic initial display assignments. When more than one zone is active they cycle between zones; changing zones relocates the actor into the target work area before normal movement resumes, avoiding the old constraint loop that pinned actors to the primary display.
 
+Idle main agents and completed subagents enter a dormant state after the normal completion grace period. The overlay hides them by default or renders them as stationary sleeping Pets when enabled. The in-memory dormant history expires after 30 minutes and is capped at 50 agents, so long-running companions remain bounded.
+
 ## Avatar library
 
 `src/core/avatar-library.cjs` scans the shared `${CODEX_HOME}/pets` directory first and optional bundled assets second. It validates package paths and WebP dimensions before exposing an asset through the private `codex-avatar:` protocol.

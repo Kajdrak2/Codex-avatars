@@ -1,6 +1,10 @@
 'use strict';
 
-const { COMPLETION_GRACE_MS } = require('./constants.cjs');
+const {
+  COMPLETION_GRACE_MS,
+  DORMANT_RETENTION_MS,
+  MAX_DORMANT_AGENTS,
+} = require('./constants.cjs');
 
 function titleFromType(type) {
   return String(type || 'subagent')
@@ -40,6 +44,8 @@ class AgentStore {
   constructor(options = {}) {
     this.sessions = new Map();
     this.completionGraceMs = options.completionGraceMs ?? COMPLETION_GRACE_MS;
+    this.dormantRetentionMs = options.dormantRetentionMs ?? DORMANT_RETENTION_MS;
+    this.maxDormantAgents = options.maxDormantAgents ?? MAX_DORMANT_AGENTS;
   }
 
   apply(event) {
@@ -69,12 +75,15 @@ class AgentStore {
         for (const agent of session.agents.values()) {
           agent.status = 'done';
           agent.updatedAt = timestamp;
+          agent.dormantAt = null;
           agent.removeAt = timestamp + this.completionGraceMs;
         }
         break;
       case 'agent.started': {
         const existing = session.agents.get(event.agentId);
         session.status = 'working';
+        session.endedAt = null;
+        this.#setRootStatus(session, 'working', timestamp);
         session.agents.set(event.agentId, {
           id: event.agentId,
           type: event.agentType || existing?.type || 'subagent',
@@ -87,6 +96,7 @@ class AgentStore {
           isRoot: false,
           startedAt: existing?.startedAt ?? timestamp,
           updatedAt: timestamp,
+          dormantAt: null,
           removeAt: null,
         });
         break;
@@ -105,6 +115,7 @@ class AgentStore {
           isRoot: false,
           startedAt: existing?.startedAt ?? timestamp,
           updatedAt: timestamp,
+          dormantAt: null,
           removeAt: timestamp + this.completionGraceMs,
         });
         break;
@@ -132,20 +143,31 @@ class AgentStore {
   cleanup(timestamp = Date.now()) {
     let changed = false;
 
-    for (const [sessionId, session] of this.sessions) {
-      for (const [agentId, agent] of session.agents) {
-        if (!agent.isRoot && agent.removeAt && agent.removeAt <= timestamp) {
-          session.agents.delete(agentId);
+    for (const session of this.sessions.values()) {
+      for (const agent of session.agents.values()) {
+        if (agent.status === 'done' && agent.removeAt && agent.removeAt <= timestamp) {
+          agent.status = 'dormant';
+          agent.updatedAt = timestamp;
+          agent.dormantAt = timestamp;
+          agent.removeAt = null;
           changed = true;
         }
       }
-
-      const root = session.agents.get(`root:${sessionId}`);
-      const hasSubagents = [...session.agents.values()].some((agent) => !agent.isRoot);
-      if (session.endedAt && !hasSubagents && root?.removeAt <= timestamp) {
-        this.sessions.delete(sessionId);
-        changed = true;
+      if (session.endedAt && [...session.agents.values()].every((agent) => agent.status === 'dormant')) {
+        session.status = 'dormant';
       }
+    }
+
+    const dormant = this.#dormantEntries();
+    for (const entry of dormant) {
+      if (entry.dormantAt + this.dormantRetentionMs <= timestamp) {
+        changed = this.#removeDormantEntry(entry) || changed;
+      }
+    }
+
+    const retained = this.#dormantEntries().sort((left, right) => right.dormantAt - left.dormantAt);
+    for (const entry of retained.slice(Math.max(0, this.maxDormantAgents))) {
+      changed = this.#removeDormantEntry(entry) || changed;
     }
 
     return changed;
@@ -153,6 +175,12 @@ class AgentStore {
 
   removeSession(sessionId) {
     return this.sessions.delete(sessionId);
+  }
+
+  hasAgent(sessionId, agentId, isRoot = false) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return false;
+    return session.agents.has(isRoot ? `root:${sessionId}` : agentId);
   }
 
   snapshot() {
@@ -198,6 +226,7 @@ class AgentStore {
         isRoot: true,
         startedAt: timestamp,
         updatedAt: timestamp,
+        dormantAt: null,
         removeAt: null,
       });
       this.sessions.set(event.sessionId, session);
@@ -213,7 +242,38 @@ class AgentStore {
     if (!root) return;
     root.status = status;
     root.updatedAt = timestamp;
+    root.dormantAt = status === 'idle' ? timestamp : null;
     root.removeAt = status === 'done' ? timestamp + this.completionGraceMs : null;
+  }
+
+  #dormantEntries() {
+    const entries = [];
+    for (const [sessionId, session] of this.sessions) {
+      for (const [agentId, agent] of session.agents) {
+        if (!['idle', 'dormant'].includes(agent.status)) continue;
+        if (agent.isRoot && [...session.agents.values()].some((peer) => (
+          !peer.isRoot && !['idle', 'dormant'].includes(peer.status)
+        ))) continue;
+        entries.push({
+          sessionId,
+          agentId,
+          isRoot: agent.isRoot,
+          dormantAt: agent.isRoot
+            ? Math.max(...[...session.agents.values()]
+              .filter((peer) => ['idle', 'dormant'].includes(peer.status))
+              .map((peer) => peer.dormantAt ?? peer.updatedAt))
+            : (agent.dormantAt ?? agent.updatedAt),
+        });
+      }
+    }
+    return entries;
+  }
+
+  #removeDormantEntry(entry) {
+    const session = this.sessions.get(entry.sessionId);
+    if (!session) return false;
+    if (entry.isRoot) return this.sessions.delete(entry.sessionId);
+    return session.agents.delete(entry.agentId);
   }
 
   #setRootMetadata(session, event) {

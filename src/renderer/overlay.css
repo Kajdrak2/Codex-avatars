@@ -76,6 +76,25 @@ body.is-interactive .avatar.is-dragging {
   animation: finish-bounce 560ms cubic-bezier(.2, .85, .3, 1.25) both;
 }
 
+.avatar.status-idle .sprite,
+.avatar.status-dormant .sprite {
+  filter: saturate(.68) brightness(.82) drop-shadow(0 6px 5px rgb(0 0 0 / 22%));
+}
+
+.avatar.status-idle::after,
+.avatar.status-dormant::after {
+  position: absolute;
+  top: 4%;
+  right: -4px;
+  content: "Zz";
+  color: rgb(190 227 255 / 88%);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-shadow: 0 2px 6px rgb(0 0 0 / 70%);
+  animation: sleep-float 1.8s ease-in-out infinite;
+}
+
 .agent-label {
   position: absolute;
   left: 50%;
@@ -150,10 +169,23 @@ body.is-interactive .avatar.is-dragging {
   100% { transform: translateY(0) scale(1); }
 }
 
+@keyframes sleep-float {
+  0%, 100% { opacity: .45; transform: translateY(3px) scale(.88); }
+  50% { opacity: 1; transform: translateY(-4px) scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .avatar,
+  .avatar::after,
   .sprite {
     animation: none !important;
     transition: none !important;
   }
+}
+
+body.is-reduced-motion .avatar,
+body.is-reduced-motion .avatar::after,
+body.is-reduced-motion .sprite {
+  animation: none !important;
+  transition: none !important;
 }

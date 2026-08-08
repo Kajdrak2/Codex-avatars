@@ -2,7 +2,7 @@
 
 Codex Avatars donne un compagnon animé indépendant à la tâche principale et à chaque sous-agent Codex. Les personnages utilisent le format natif des Pets Codex v2 et se déplacent directement sur un ou plusieurs écrans, sans dock, panneau coloré ni fond visible.
 
-> État du projet : la version `0.4.0` fournit un installeur Windows autonome, un paquet plugin prêt pour Git et le partage portable des Pets. Aucun dépôt distant ni binaire signé n’est encore publié depuis ce checkout.
+> État du projet : la version `0.4.1` fournit un installeur Windows autonome, un paquet plugin prêt pour Git, le partage portable des Pets et l’affichage borné des agents dormants. Aucun dépôt distant ni binaire signé n’est encore publié depuis ce checkout.
 
 ## Ce qui est déjà pris en charge
 
@@ -15,6 +15,7 @@ Codex Avatars donne un compagnon animé indépendant à la tâche principale et 
 - Sélection visuelle de la zone personnalisée directement sur le bureau, comme une capture d’écran.
 - Titre de chaque tâche Codex principale et nom réel de chaque sous-tâche de collaboration, avec modèle et effort affichables séparément.
 - Tailles réglables indépendamment pour les agents principaux et les sous-agents.
+- Affichage facultatif des agents récemment au repos ou terminés sous forme de Pets endormis et immobiles pendant 30 minutes maximum.
 - Formulaire de création personnalisé ouvrant une tâche Codex avec le prompt déjà préparé.
 - Import et partage de packages `.codexpet` validés depuis la galerie locale.
 - Mode passif avec trois portes de sortie permanentes : réglages, icône de notification Windows et `Ctrl+Alt+A`.
@@ -29,7 +30,7 @@ Le dessin sur le bureau est donc assuré par un petit processus Electron local. 
 
 ## Installation simple — recommandée
 
-1. Télécharge `Codex Avatars-Setup-0.4.0.exe` depuis la release GitHub.
+1. Télécharge `Codex Avatars-Setup-0.4.1.exe` depuis la release GitHub.
 2. Ouvre l’installeur et termine l’assistant.
 3. Dans la page Codex qui s’ouvre, installe **Codex Avatars** et vérifie ses hooks.
 
@@ -71,7 +72,7 @@ L’overlay n’a volontairement aucun panneau. Ouvre les réglages depuis l’i
 - **Mode interactif** : les zones des avatars deviennent saisissables et les personnages peuvent être déplacés.
 - **Avatars actifs** : chaque Pet peut être activé ou désactivé ; les agents sont distribués de façon déterministe entre les choix actifs.
 - **Zone** : sélectionne tous les écrans, coche plusieurs moniteurs ou trace directement un rectangle sur le bureau.
-- **Tailles principale/sous-agent, noms, modèle/effort et mouvement** : les options s’appliquent immédiatement et sont conservées localement.
+- **Tailles principale/sous-agent, noms, modèle/effort, agents dormants et mouvement** : les options s’appliquent immédiatement et sont conservées localement.
 - **Démo** : le même bouton la lance et l’arrête, puis supprime tous les agents synthétiques.
 
 ## Créer un avatar depuis Work ou Codex

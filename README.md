@@ -2,7 +2,7 @@
 
 Codex Avatars gives the main task and every Codex subagent an independent animated companion. Characters use the native Codex Pet v2 format and roam directly across one or more displays, with no dock, colored panel, or visible overlay background.
 
-> Project status: version `0.4.0` provides a self-contained Windows installer, a Git-ready plugin marketplace, and portable Pet sharing. This checkout does not yet have a configured remote or a published signed binary.
+> Project status: version `0.4.1` provides a self-contained Windows installer, a Git-ready plugin marketplace, portable Pet sharing, and bounded dormant-agent display. This checkout does not yet have a configured remote or a published signed binary.
 
 [Lire en français](README.fr.md)
 
@@ -17,6 +17,7 @@ Codex Avatars gives the main task and every Codex subagent an independent animat
 - Draw custom roaming rectangles directly on the desktop, like a screenshot selection.
 - Show each main Codex task title and the real collaboration subtask name, plus optional model and reasoning effort.
 - Size main agents and subagents independently.
+- Optionally keep recently idle or completed agents visible as stationary sleeping Pets for up to 30 minutes.
 - Create a tailored Pet from the settings form in a prefilled Codex task.
 - Import and share validated `.codexpet` packages through the local Pet Gallery.
 - Escape passive mode from settings, the Windows tray icon, or `Ctrl+Alt+A`.
@@ -31,7 +32,7 @@ A small local Electron process therefore draws the desktop sprites. The installe
 
 ## Simple installation — recommended
 
-1. Download `Codex Avatars-Setup-0.4.0.exe` from the GitHub release.
+1. Download `Codex Avatars-Setup-0.4.1.exe` from the GitHub release.
 2. Run the installer and finish the wizard.
 3. On the Codex plugin page that opens, install **Codex Avatars** and review its hooks.
 
@@ -65,7 +66,7 @@ The overlay intentionally has no panel. Open settings from the **Codex Avatars**
 
 - Passive mode makes every click pass through; `Ctrl+Alt+A` always remains available.
 - Interactive mode lets you drag individual avatars without blocking the rest of the desktop.
-- Select active Pets, separate main/subagent sizes, names, model/effort details, reduced movement, and automatic activation of newly discovered Pets.
+- Select active Pets, separate main/subagent sizes, names, model/effort details, dormant-agent display, reduced movement, and automatic activation of newly discovered Pets.
 - Choose all displays, selected monitors, or draw a custom area on the desktop.
 - Start and stop the synthetic demo from the same button.
 

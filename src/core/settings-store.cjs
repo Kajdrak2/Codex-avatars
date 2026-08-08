@@ -5,7 +5,7 @@ const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 
 const DEFAULT_SETTINGS = Object.freeze({
-  schemaVersion: 5,
+  schemaVersion: 6,
   language: 'en',
   passive: true,
   enabledAvatarIds: [],
@@ -17,6 +17,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   subagentAvatarSize: 118,
   showLabels: true,
   showAgentDetails: true,
+  showDormantAgents: false,
   reducedMotion: false,
   pluginOnboardingShown: false,
   onboardingCompleted: false,
@@ -81,6 +82,9 @@ function normalizeSettings(value) {
     showAgentDetails: source.showAgentDetails === undefined
       ? DEFAULT_SETTINGS.showAgentDetails
       : Boolean(source.showAgentDetails),
+    showDormantAgents: source.showDormantAgents === undefined
+      ? DEFAULT_SETTINGS.showDormantAgents
+      : Boolean(source.showDormantAgents),
     reducedMotion: source.reducedMotion === undefined
       ? DEFAULT_SETTINGS.reducedMotion
       : Boolean(source.reducedMotion),

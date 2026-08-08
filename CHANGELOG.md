@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-08
+
+### Added
+
+- Optional dormant-agent display for recently idle main agents and completed subagents.
+- A distinct stationary sleeping treatment with a dimmed Pet and `Zz` indicator.
+
+### Changed
+
+- Dormant history is bounded to 30 minutes and 50 agents, while the existing completion animation remains visible before sleep.
+- The status counter distinguishes active agents from sleeping agents.
+
 ## [0.4.0] - 2026-08-08
 
 ### Added

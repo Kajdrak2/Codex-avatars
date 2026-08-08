@@ -254,7 +254,12 @@ function enrichMetadata(event) {
 function handlePayload(payload) {
   const event = normalizeHookEvent(payload);
   if ((capturePath || settingsCapturePath) && event) process.stderr.write(`[avatars] event=${event.kind}\n`);
+  const target = event ? metadataTarget(event) : null;
+  const targetKnown = target
+    ? store.hasAgent(event.sessionId, target.id, target.isRoot)
+    : true;
   if (event && store.apply(event)) {
+    if (target && !targetKnown) resolvedMetadata.delete(`${event.sessionId}:${target.id}`);
     broadcastState();
     enrichMetadata(event);
   }
@@ -565,6 +570,22 @@ function runDemo() {
   emit(80, { hook_event_name: 'SubagentStart', agent_id: `${sessionId}-1`, agent_type: 'default', agent_name: 'Explorer', model: 'gpt-5.6-terra', reasoning_effort: 'medium' });
   emit(240, { hook_event_name: 'SubagentStart', agent_id: `${sessionId}-2`, agent_type: 'default', agent_name: 'UI builder', model: 'gpt-5.6-terra', reasoning_effort: 'high' });
   emit(400, { hook_event_name: 'SubagentStart', agent_id: `${sessionId}-3`, agent_type: 'default', agent_name: 'Test runner', model: 'gpt-5.6-terra', reasoning_effort: 'medium' });
+  const dormantTimer = setTimeout(() => {
+    demoTimers.delete(dormantTimer);
+    if (demoSessionId !== sessionId) return;
+    const timestamp = Date.now();
+    const dormantId = `${sessionId}-sleeping`;
+    store.apply({
+      kind: 'agent.started', sessionId, agentId: dormantId, agentType: 'default',
+      agentLabel: 'Dormant architect', model: 'gpt-5.6-terra', effort: 'low', timestamp: timestamp - 8_000,
+    });
+    store.apply({
+      kind: 'agent.stopped', sessionId, agentId: dormantId, agentType: 'default',
+      agentLabel: 'Dormant architect', model: 'gpt-5.6-terra', effort: 'low', timestamp: timestamp - 7_500,
+    });
+    if (store.cleanup(timestamp)) broadcastState();
+  }, 620);
+  demoTimers.add(dormantTimer);
   emit(5_500, { hook_event_name: 'PermissionRequest' });
   emit(7_000, { hook_event_name: 'UserPromptSubmit' });
   emit(10_000, { hook_event_name: 'SubagentStop', agent_id: `${sessionId}-1`, agent_type: 'explorer' });
