@@ -23,8 +23,11 @@ function parseLatestRelease(release, currentVersion) {
   const comparison = compareVersions(version, currentVersion);
   if (comparison === null || comparison <= 0) return null;
   const assets = Array.isArray(release.assets) ? release.assets : [];
-  const installerName = `Codex Avatars-Setup-${version}.exe`;
-  const installer = assets.find((asset) => String(asset?.name || '').toLowerCase() === installerName.toLowerCase());
+  const installerNames = new Set([
+    `Codex Avatars-Setup-${version}.exe`,
+    `Codex.Avatars-Setup-${version}.exe`,
+  ].map((name) => name.toLowerCase()));
+  const installer = assets.find((asset) => installerNames.has(String(asset?.name || '').toLowerCase()));
   const downloadUrl = typeof installer?.browser_download_url === 'string' ? installer.browser_download_url : null;
   if (!downloadUrl || !downloadUrl.startsWith('https://')) return null;
   return { version, downloadUrl };

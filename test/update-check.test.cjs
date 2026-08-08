@@ -35,6 +35,17 @@ test('requires the exact HTTPS installer asset for the tagged version', () => {
   }, '0.4.9'), null);
 });
 
+test('accepts the GitHub-normalized installer filename', () => {
+  const update = parseLatestRelease({
+    tag_name: 'v0.6.3',
+    assets: [{
+      name: 'Codex.Avatars-Setup-0.6.3.exe',
+      browser_download_url: 'https://example.test/setup.exe',
+    }],
+  }, '0.6.2');
+  assert.deepEqual(update, { version: '0.6.3', downloadUrl: 'https://example.test/setup.exe' });
+});
+
 test('checks the fixed public release endpoint without throwing on an HTTP failure', async () => {
   let receivedUrl = null;
   const update = await checkForUpdate({

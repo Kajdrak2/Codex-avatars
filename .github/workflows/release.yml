@@ -63,3 +63,15 @@ jobs:
             dist/*.yml
             dist/*.blockmap
             dist/SHA256SUMS.txt
+      - name: Upload a legacy-compatible installer asset
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          $installer = Get-ChildItem -LiteralPath dist -Filter '*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'Windows installer was not produced.' }
+          $compatibilityPath = Join-Path $env:RUNNER_TEMP "Codex Avatars-Setup-$version.exe"
+          Copy-Item -LiteralPath $installer.FullName -Destination $compatibilityPath -Force
+          gh release upload $env:GITHUB_REF_NAME $compatibilityPath --clobber
