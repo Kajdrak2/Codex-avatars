@@ -3,6 +3,7 @@
 const api = window.codexAvatars;
 const world = document.querySelector('#world');
 const topology = window.CodexAvatarTopology;
+const labelLayout = window.CodexAvatarLabelLayout.labelLayout;
 const actors = new Map();
 const animations = {
   idle: { row: 0, durations: [280, 110, 110, 140, 140, 320] },
@@ -60,9 +61,17 @@ function avatarSizeFor(agent) {
     : (settings?.subagentAvatarSize || 118);
 }
 
+function detailsFor(agent) {
+  return [agent?.model, agent?.effort].filter(Boolean).join(' · ');
+}
+
+function layoutFor(agent) {
+  return labelLayout(settings, Boolean(detailsFor(agent)));
+}
+
 function randomPoint(actor, selected) {
   const size = avatarSizeFor(actor.agent);
-  const labelSpace = settings?.showLabels ? (settings?.showAgentDetails ? 52 : 36) : 8;
+  const labelSpace = layoutFor(actor.agent).space;
   const usableWidth = Math.max(1, selected.width - size);
   const usableHeight = Math.max(1, selected.height - (size * 1.08334) - labelSpace);
   return {
@@ -73,12 +82,12 @@ function randomPoint(actor, selected) {
 
 function actorHeight(actor) {
   const size = avatarSizeFor(actor.agent);
-  return size * 1.08334 + (settings?.showLabels ? (settings?.showAgentDetails ? 50 : 34) : 0);
+  return size * 1.08334 + layoutFor(actor.agent).height;
 }
 
 function safeArea(actor, selected) {
   const size = avatarSizeFor(actor.agent);
-  const sidePadding = settings?.showLabels ? 18 : 2;
+  const sidePadding = layoutFor(actor.agent).sidePadding;
   const height = actorHeight(actor);
   return {
     minX: selected.x + sidePadding,
@@ -246,12 +255,14 @@ function updateActorElement(actor) {
   const { agent, avatar, element, sprite, label, labelName, labelDetail } = actor;
   element.className = `avatar status-${agent.status}${agent.isRoot ? ' is-root' : ''}${actor.dragging ? ' is-dragging' : ''}`;
   element.style.setProperty('--avatar-size', `${avatarSizeFor(agent)}px`);
-  element.style.setProperty('--label-height', settings?.showLabels && settings?.showAgentDetails ? '50px' : '34px');
-  label.hidden = !settings?.showLabels;
+  const detail = detailsFor(agent);
+  const layout = labelLayout(settings, Boolean(detail));
+  element.style.setProperty('--label-height', `${layout.height}px`);
+  label.hidden = !layout.visible;
+  labelName.hidden = !layout.showName;
   labelName.textContent = agent.label;
-  const detail = [agent.model, agent.effort].filter(Boolean).join(' · ');
   labelDetail.textContent = detail;
-  labelDetail.hidden = !settings?.showAgentDetails || !detail;
+  labelDetail.hidden = !layout.showDetails;
   element.setAttribute('aria-label', [labelName.textContent, detail, agent.status].filter(Boolean).join(', '));
   sprite.style.backgroundImage = `url("${avatar.assetUrl}")`;
   sprite.style.backgroundSize = `800% ${avatar.rows * 100}%`;

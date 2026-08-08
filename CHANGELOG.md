@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-08-08
+
+### Fixed
+
+- "Show names" and "Show model + effort" now control independent overlay lines, including collision spacing and label height.
+
 ## [0.4.5] - 2026-08-08
 
 ### Fixed
