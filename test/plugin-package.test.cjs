@@ -16,7 +16,7 @@ test('repo marketplace and plugin identifiers match', () => {
   assert.equal(entry.source.path, './plugins/codex-avatars');
   const packageManifest = JSON.parse(fs.readFileSync(path.join(root, 'package.json')));
   assert.equal(manifest.version.split('+')[0], packageManifest.version);
-  assert.match(manifest.version, /^0\.4\.9\+codex\.[a-z0-9-]+$/);
+  assert.match(manifest.version, /^0\.5\.0\+codex\.[a-z0-9-]+$/);
 });
 
 test('plugin bundles every lifecycle hook and the privacy-minimized bridge', () => {

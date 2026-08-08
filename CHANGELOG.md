@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-08
+
+### Added
+
+- Packaged Windows installations check the stable GitHub Release on startup and offer the matching newer installer through a native confirmation dialog.
+
 ## [0.4.9] - 2026-08-08
 
 ### Fixed

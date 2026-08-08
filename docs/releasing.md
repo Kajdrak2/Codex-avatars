@@ -33,7 +33,7 @@ git push origin main
 git push origin v0.4.4
 ```
 
-The tag runs tests, builds the self-contained NSIS installer, creates a source/plugin zip with `git archive`, generates SHA-256 checksums, uploads the workflow artifact, and attaches both distribution forms to the GitHub Release.
+The tag runs tests, builds the self-contained NSIS installer, creates a source/plugin zip with `git archive`, generates SHA-256 checksums, uploads the workflow artifact, and attaches both distribution forms to the GitHub Release. Packaged installations check this stable release endpoint on startup; when a newer installer is attached, users can download it directly from the update prompt.
 
 ## Marketplace and plugin directory
 

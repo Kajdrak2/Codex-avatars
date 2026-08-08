@@ -37,6 +37,7 @@ const {
 } = require('./core/roaming-zone.cjs');
 const { exportPetPackage, importPetPackage } = require('./core/pet-packages.cjs');
 const { mergeSettings, SettingsStore } = require('./core/settings-store.cjs');
+const { checkForUpdate } = require('./core/update-check.cjs');
 const {
   hooksStatus,
   installHooks,
@@ -98,10 +99,42 @@ const pendingMetadata = new Set();
 const resolvedMetadata = new Set();
 let demoSessionId = null;
 const demoTimers = new Set();
+let updateCheckStarted = false;
 
 function findArgument(prefix) {
   const argument = process.argv.find((value) => value.startsWith(prefix));
   return argument ? argument.slice(prefix.length) : null;
+}
+
+async function promptForUpdate() {
+  if (!app.isPackaged || updateCheckStarted) return;
+  updateCheckStarted = true;
+  let update = null;
+  try {
+    update = await checkForUpdate({
+      currentVersion: app.getVersion(),
+      signal: AbortSignal.timeout(5_000),
+    });
+  } catch {
+    return;
+  }
+  if (!update) return;
+  const french = settings?.language === 'fr';
+  const result = await dialog.showMessageBox(settingsWindow, {
+    type: 'info',
+    title: 'Codex Avatars',
+    message: french
+      ? `Une mise à jour de Codex Avatars (${update.version}) est disponible.`
+      : `A Codex Avatars update (${update.version}) is available.`,
+    detail: french
+      ? 'Téléchargez l’installateur, puis exécutez-le pour mettre à jour sans perdre vos réglages ni vos Pets.'
+      : 'Download and run the installer to update without losing your settings or Pets.',
+    buttons: french ? ['Télécharger la mise à jour', 'Plus tard'] : ['Download update', 'Later'],
+    defaultId: 0,
+    cancelId: 1,
+    noLink: true,
+  });
+  if (result.response === 0) await shell.openExternal(update.downloadUrl);
 }
 
 function hookScriptPath() {
@@ -931,6 +964,7 @@ async function startApplication() {
   createTray();
   createOverlayWindow();
   createSettingsWindow();
+  void promptForUpdate();
 
   if (zonePickerCapturePath) {
     void selectCustomZone();
