@@ -62,7 +62,7 @@ function mergeHooksConfig(existing, scriptPath) {
         type: 'command',
         command,
         commandWindows: command,
-        timeout: 5,
+        timeout: 3,
       }],
     };
     next.hooks[eventName] = [...groups, group];

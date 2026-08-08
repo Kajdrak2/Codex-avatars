@@ -25,6 +25,7 @@ test('merges hooks without replacing unrelated user handlers', () => {
   assert.equal(merged.hooks.Stop.length, 2);
   assert.equal(hasInstalledHooks(merged), true);
   for (const [eventName] of EVENTS) assert.ok(merged.hooks[eventName]);
+  assert.equal(merged.hooks.SessionEnd.at(-1).hooks[0].timeout, 3);
 });
 
 test('installation is idempotent and removal preserves other hooks', () => {

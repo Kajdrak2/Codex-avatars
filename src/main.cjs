@@ -814,6 +814,7 @@ function registerIpc() {
     requireWindowSender(event, settingsWindow, 'settings');
     app.setLoginItemSettings({
       openAtLogin: Boolean(value),
+      path: process.execPath,
       args: ['--background'],
     });
     return app.getLoginItemSettings().openAtLogin;

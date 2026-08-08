@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-08-08
+
+### Fixed
+
+- Codex lifecycle hooks now declare the supported three-second timeout, avoiding startup warnings.
+- Login-item registration explicitly targets the installed executable, and metadata retries no longer delay a restarted overlay for more than a fraction of a second.
+
 ## [0.6.3] - 2026-08-08
 
 ### Fixed

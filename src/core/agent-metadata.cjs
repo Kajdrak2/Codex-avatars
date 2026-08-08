@@ -130,7 +130,9 @@ class AgentMetadataResolver {
   constructor(sessionsRoot, options = {}) {
     this.sessionsRoot = sessionsRoot;
     this.threadIndexPath = options.threadIndexPath || path.join(path.dirname(sessionsRoot), 'session_index.jsonl');
-    this.retryDelays = options.retryDelays || [0, 120, 420, 1_000];
+    // The first read is immediate. The two short retries absorb a concurrent
+    // Codex append without making a freshly launched companion feel delayed.
+    this.retryDelays = options.retryDelays || [0, 80, 240];
     this.fileCache = new Map();
     this.metadataCache = new Map();
   }
