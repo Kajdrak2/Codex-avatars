@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-08-08
+
+### Fixed
+
+- Release validation now tracks the packaged plugin version correctly.
+
 ## [0.5.1] - 2026-08-08
 
 ### Fixed
