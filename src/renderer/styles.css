@@ -373,6 +373,14 @@ h2 {
   transform: translateY(-1px);
 }
 
+.primary-button:disabled,
+.quiet-button:disabled {
+  cursor: not-allowed;
+  filter: saturate(.25);
+  opacity: .45;
+  transform: none;
+}
+
 .quiet-button:hover {
   background: rgb(255 255 255 / 7%);
   border-color: rgb(255 255 255 / 16%);

@@ -37,7 +37,10 @@ const copy = isFrench ? {
   apply: 'Appliquer',
   integrationEyebrow: 'Intégration',
   integrationTitle: 'Codex + compagnon système',
-  integrationCopy: 'Le plugin fournit les hooks et la création d’avatars. Le petit renderer local est nécessaire uniquement pour dessiner au-dessus de Windows.',
+  integrationCopy: 'L’installateur active le compagnon local. Finalise le plugin dans Codex pour la création d’avatars et les hooks intégrés.',
+  openPlugin: 'Terminer dans Codex',
+  pluginOpened: 'Codex est ouvert. Installe le plugin puis vérifie ses hooks.',
+  pluginUnavailable: 'Le paquet plugin est introuvable dans cette installation.',
   enableHooks: 'Activer les hooks autonomes',
   disableHooks: 'Désactiver les hooks autonomes',
   docs: 'Documentation Pets',
@@ -84,7 +87,10 @@ const copy = isFrench ? {
   apply: 'Apply',
   integrationEyebrow: 'Integration',
   integrationTitle: 'Codex + system companion',
-  integrationCopy: 'The plugin provides hooks and avatar creation. The tiny local renderer is only needed to draw above Windows.',
+  integrationCopy: 'The installer enables the local companion. Finish the plugin setup in Codex for avatar creation and integrated hooks.',
+  openPlugin: 'Finish in Codex',
+  pluginOpened: 'Codex is open. Install the plugin, then review its hooks.',
+  pluginUnavailable: 'The plugin bundle is missing from this installation.',
   enableHooks: 'Enable standalone hooks',
   disableHooks: 'Disable standalone hooks',
   docs: 'Pets documentation',
@@ -112,6 +118,7 @@ const elements = {
   displayList: document.querySelector('#display-list'),
   customForm: document.querySelector('#custom-zone-form'),
   hooksButton: document.querySelector('#legacy-hooks-button'),
+  openPluginButton: document.querySelector('#open-plugin-button'),
   toast: document.querySelector('#toast'),
 };
 
@@ -160,6 +167,7 @@ function localize() {
     '#integration-eyebrow': copy.integrationEyebrow,
     '#integration-title': copy.integrationTitle,
     '#integration-copy': copy.integrationCopy,
+    '#open-plugin-button': copy.openPlugin,
     '#pets-docs-button': copy.docs,
     '#demo-button': copy.demo,
   };
@@ -336,6 +344,10 @@ document.querySelector('#create-avatar').addEventListener('click', async () => {
 document.querySelector('#open-pet-folder').addEventListener('click', () => void api.openPetDirectory());
 document.querySelector('#pets-docs-button').addEventListener('click', () => void api.openPetsDocs());
 document.querySelector('#demo-button').addEventListener('click', () => void api.runDemo());
+elements.openPluginButton.addEventListener('click', async () => {
+  const result = await api.openPlugin();
+  showToast(result.opened ? copy.pluginOpened : copy.pluginUnavailable);
+});
 elements.hooksButton.addEventListener('click', async () => {
   const result = hooksInstalled ? await api.uninstallHooks() : await api.installHooks();
   hooksInstalled = result.installed;
@@ -361,6 +373,7 @@ async function initialize() {
   avatars = bootstrap.avatars;
   displays = bootstrap.displays;
   hooksInstalled = bootstrap.hooks.installed;
+  elements.openPluginButton.disabled = !bootstrap.plugin.available;
   elements.startup.checked = bootstrap.launchAtLogin;
   text('#version', `v${bootstrap.version}`);
   updateActiveCount(bootstrap.state);

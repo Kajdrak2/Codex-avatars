@@ -20,6 +20,10 @@ const { AgentStore } = require('./core/agent-store.cjs');
 const { discoverAvatars, readWebpDimensions } = require('./core/avatar-library.cjs');
 const { normalizeHookEvent } = require('./core/event-normalizer.cjs');
 const { createEventServer } = require('./core/pipe-server.cjs');
+const {
+  marketplacePath: resolvePluginMarketplacePath,
+  pluginDeepLink,
+} = require('./core/plugin-integration.cjs');
 const { resolveRoamingZone, serializeDisplay } = require('./core/roaming-zone.cjs');
 const { SettingsStore } = require('./core/settings-store.cjs');
 const {
@@ -78,6 +82,26 @@ function hookScriptPath() {
 
 function codexHomePath() {
   return process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
+}
+
+function pluginMarketplacePath() {
+  return resolvePluginMarketplacePath({
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    appPath: path.join(__dirname, '..'),
+  });
+}
+
+async function openPluginInCodex() {
+  const marketplace = pluginMarketplacePath();
+  try {
+    await fs.access(marketplace);
+    const url = pluginDeepLink(marketplace);
+    await shell.openExternal(url);
+    return { opened: true, url };
+  } catch (error) {
+    return { opened: false, message: error.message };
+  }
 }
 
 function publicAvatar(record) {
@@ -416,6 +440,12 @@ function runDemo() {
 }
 
 async function bootstrapPayload() {
+  let pluginAvailable = true;
+  try {
+    await fs.access(pluginMarketplacePath());
+  } catch {
+    pluginAvailable = false;
+  }
   return {
     state: store.snapshot(),
     settings,
@@ -428,6 +458,10 @@ async function bootstrapPayload() {
     shortcut: 'Ctrl+Alt+A',
     version: app.getVersion(),
     petDirectory: path.join(codexHomePath(), 'pets'),
+    plugin: {
+      available: pluginAvailable,
+      onboardingShown: settings.pluginOnboardingShown,
+    },
   };
 }
 
@@ -461,6 +495,7 @@ function registerIpc() {
     return prompt;
   });
   ipcMain.handle('avatars:open-pets-doc', () => shell.openExternal('https://learn.chatgpt.com/docs/pets'));
+  ipcMain.handle('avatars:open-plugin', () => openPluginInCodex());
   ipcMain.handle('avatars:open-pet-directory', () => shell.openPath(path.join(codexHomePath(), 'pets')));
   ipcMain.handle('avatars:demo', () => runDemo());
   ipcMain.handle('avatars:quit', () => {
@@ -494,6 +529,18 @@ async function startApplication() {
   createTray();
   createOverlayWindow();
   createSettingsWindow();
+
+  if (
+    app.isPackaged
+    && !backgroundLaunch
+    && !capturePath
+    && !settingsCapturePath
+    && !settings.pluginOnboardingShown
+  ) {
+    settings = await settingsStore.update({ pluginOnboardingShown: true });
+    broadcastSettings();
+    setTimeout(() => void openPluginInCodex(), 1_100);
+  }
 
   globalShortcut.register('CommandOrControl+Alt+A', () => {
     void applySettingsPatch({ passive: !settings.passive });

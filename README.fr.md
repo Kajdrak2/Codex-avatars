@@ -2,7 +2,7 @@
 
 Codex Avatars donne un compagnon animé indépendant à la tâche principale et à chaque sous-agent Codex. Les personnages utilisent le format natif des Pets Codex v2 et se déplacent directement sur un ou plusieurs écrans, sans dock, panneau coloré ni fond visible.
 
-> État du projet : la version `0.2.0` fonctionne localement sous Windows et le paquet plugin est prêt pour un marketplace Git. Aucun dépôt distant ni binaire signé n’est encore publié depuis ce checkout.
+> État du projet : la version `0.3.0` fournit un installeur Windows autonome et un paquet plugin prêt pour un marketplace Git. Aucun dépôt distant ni binaire signé n’est encore publié depuis ce checkout.
 
 ## Ce qui est déjà pris en charge
 
@@ -20,9 +20,19 @@ Codex Avatars donne un compagnon animé indépendant à la tâche principale et 
 
 Le plugin assure l’intégration à ChatGPT/Codex : hooks, installation, commandes et création d’avatars. Une interface de plugin s’exécute toutefois dans une iframe à l’intérieur de ChatGPT ; elle ne peut pas créer une fenêtre système toujours au-dessus des autres applications.
 
-Le dessin sur le bureau est donc assuré par un petit processus Electron local. Le parcours Git ci-dessous ne distribue pas d’exécutable Codex Avatars personnalisé : il utilise le runtime Electron installé dans `node_modules`. Un installeur `.exe` peut rester proposé plus tard comme solution facultative pour les personnes qui ne souhaitent pas installer Node.js.
+Le dessin sur le bureau est donc assuré par un petit processus Electron local. L’installeur l’embarque de façon autonome ; l’utilisateur final n’a besoin ni de Node.js, ni de Git, ni d’un terminal après téléchargement.
 
-## Installation depuis Git
+## Installation simple — recommandée
+
+1. Télécharge `Codex Avatars-Setup-0.3.0.exe` depuis la release GitHub.
+2. Ouvre l’installeur et termine l’assistant.
+3. Dans la page Codex qui s’ouvre, installe **Codex Avatars** et vérifie ses hooks.
+
+L’installeur place le compagnon dans le profil Windows, active immédiatement les hooks locaux, embarque le marketplace et le plugin, enregistre le chemin exact du renderer et ouvre les réglages. La confirmation finale dans Codex reste volontaire : un installeur ne doit pas accepter des hooks de sécurité à la place de l’utilisateur.
+
+La build locale actuelle n’est pas signée. Windows peut donc afficher SmartScreen tant qu’un certificat Authenticode n’est pas configuré pour la publication.
+
+## Installation depuis Git — développement
 
 Prérequis : Windows 10/11, Node.js 22 ou plus récent et une version actuelle de l’application de bureau ChatGPT avec Codex.
 
@@ -89,13 +99,13 @@ npm run demo
 npm run dist
 ```
 
-`npm run dist` construit encore l’installeur NSIS facultatif. La release GitHub joint également une archive source/plugin installable depuis Git.
+`npm run dist` construit l’installeur autonome recommandé. La release GitHub joint également une archive source/plugin pour le développement depuis Git.
 
 ## Limites actuelles
 
 - Les hooks Codex donnent un `agent_id` à `SubagentStart` et `SubagentStop`, mais les hooks d’outils n’identifient pas individuellement leur sous-agent. L’outil n’invente donc pas l’auteur d’une commande.
 - Un plugin seul ne peut pas dessiner au-dessus de tout Windows ; le renderer local est une contrainte du système, pas une intégration simulée.
-- La version publique devra être signée si l’installeur Windows facultatif est diffusé largement.
+- La version publique devra être signée avant une diffusion large afin d’éviter l’avertissement SmartScreen.
 
 Consulte [docs/architecture.md](docs/architecture.md), [CONTRIBUTING.md](CONTRIBUTING.md) et [SECURITY.md](SECURITY.md).
 

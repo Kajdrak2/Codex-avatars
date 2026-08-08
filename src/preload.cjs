@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('codexAvatars', {
   showSettings: () => ipcRenderer.invoke('avatars:show-settings'),
   setOverlayHitTest: (value) => ipcRenderer.invoke('avatars:overlay-hit-test', Boolean(value)),
   copyCreatePrompt: () => ipcRenderer.invoke('avatars:copy-create-prompt'),
+  openPlugin: () => ipcRenderer.invoke('avatars:open-plugin'),
   openPetsDocs: () => ipcRenderer.invoke('avatars:open-pets-doc'),
   openPetDirectory: () => ipcRenderer.invoke('avatars:open-pet-directory'),
   runDemo: () => ipcRenderer.invoke('avatars:demo'),

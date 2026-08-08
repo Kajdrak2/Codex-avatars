@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 
 const DEFAULT_SETTINGS = Object.freeze({
-  schemaVersion: 2,
+  schemaVersion: 3,
   passive: true,
   enabledAvatarIds: [],
   avatarSelectionInitialized: false,
@@ -12,6 +12,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   avatarSize: 118,
   showLabels: true,
   reducedMotion: false,
+  pluginOnboardingShown: false,
   zone: {
     mode: 'all',
     displayIds: [],
@@ -68,6 +69,7 @@ function normalizeSettings(value) {
     reducedMotion: source.reducedMotion === undefined
       ? DEFAULT_SETTINGS.reducedMotion
       : Boolean(source.reducedMotion),
+    pluginOnboardingShown: Boolean(source.pluginOnboardingShown),
     zone: normalizeZone(source.zone),
   };
 }

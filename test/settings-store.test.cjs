@@ -14,6 +14,8 @@ test('normalizes unsafe or out-of-range settings', () => {
     zone: { mode: 'custom', custom: { x: -50, y: 12, width: 20, height: 9 } },
   });
   assert.equal(settings.avatarSize, 180);
+  assert.equal(settings.schemaVersion, 3);
+  assert.equal(settings.pluginOnboardingShown, false);
   assert.deepEqual(settings.enabledAvatarIds, ['minuit']);
   assert.deepEqual(settings.zone.custom, { x: -50, y: 12, width: 160, height: 120 });
 });

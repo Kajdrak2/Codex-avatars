@@ -2,7 +2,7 @@
 
 Codex Avatars gives the main task and every Codex subagent an independent animated companion. Characters use the native Codex Pet v2 format and roam directly across one or more displays, with no dock, colored panel, or visible overlay background.
 
-> Project status: version `0.2.0` works locally on Windows and includes a Git-ready plugin marketplace. This checkout does not yet have a configured remote or a published signed binary.
+> Project status: version `0.3.0` provides a self-contained Windows installer and a Git-ready plugin marketplace. This checkout does not yet have a configured remote or a published signed binary.
 
 [Lire en français](README.fr.md)
 
@@ -22,9 +22,19 @@ Codex Avatars gives the main task and every Codex subagent an independent animat
 
 The plugin owns the ChatGPT/Codex integration: lifecycle hooks, installation, commands, and avatar creation. Plugin UI runs inside an iframe in ChatGPT, so it cannot create an operating-system window above unrelated applications.
 
-A small local Electron process therefore draws the desktop sprites. The Git workflow below does not distribute a bespoke Codex Avatars executable; it runs the Electron runtime installed in `node_modules`. A `.exe` installer remains an optional future fallback for people who do not want Node.js.
+A small local Electron process therefore draws the desktop sprites. The installer bundles it as a self-contained companion; end users need neither Node.js, Git, nor a terminal after downloading it.
 
-## Install from Git
+## Simple installation — recommended
+
+1. Download `Codex Avatars-Setup-0.3.0.exe` from the GitHub release.
+2. Run the installer and finish the wizard.
+3. On the Codex plugin page that opens, install **Codex Avatars** and review its hooks.
+
+The installer places the companion in the Windows user profile, enables the local hooks immediately, bundles the marketplace and plugin, records the exact renderer path, and opens settings. The final Codex confirmation is intentional: an installer must not accept security-sensitive hooks on the user's behalf.
+
+The current local build is unsigned, so Windows may show SmartScreen until Authenticode signing is configured for publication.
+
+## Install from Git — development
 
 Requirements: Windows 10/11, Node.js 22 or newer, and a current ChatGPT desktop app with Codex.
 
@@ -82,13 +92,13 @@ npm run demo
 npm run dist
 ```
 
-`npm run dist` still creates the optional NSIS installer. GitHub releases also package a source/plugin archive.
+`npm run dist` creates the recommended self-contained installer. GitHub releases also package a source/plugin archive for Git-based development.
 
 ## Current limitations
 
 - `SubagentStart` and `SubagentStop` expose an individual `agent_id`; tool-use hooks do not. Codex Avatars does not invent per-agent tool attribution.
 - A plugin alone cannot draw above the entire Windows desktop; the local renderer is a real platform boundary.
-- A broadly distributed optional installer should be code-signed.
+- A broadly distributed installer should be code-signed to avoid SmartScreen warnings.
 
 See [docs/architecture.md](docs/architecture.md), [CONTRIBUTING.md](CONTRIBUTING.md), and [SECURITY.md](SECURITY.md).
 

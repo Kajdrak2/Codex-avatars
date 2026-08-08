@@ -1,6 +1,6 @@
 {
   "name": "codex-avatars",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Independent Codex Pet avatars roaming invisibly across one or more Windows displays.",
   "main": "src/main.cjs",
   "type": "commonjs",
@@ -41,6 +41,14 @@
       {
         "from": "scripts/codex-hook.ps1",
         "to": "hooks/codex-hook.ps1"
+      },
+      {
+        "from": ".agents",
+        "to": "integration/.agents"
+      },
+      {
+        "from": "plugins",
+        "to": "integration/plugins"
       }
     ],
     "win": {
@@ -56,9 +64,10 @@
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
+      "include": "build/installer.nsh",
       "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": false,
       "createStartMenuShortcut": true,
       "runAfterFinish": true

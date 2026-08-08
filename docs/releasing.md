@@ -4,8 +4,8 @@
 
 1. Create the GitHub repository and add it as `origin`.
 2. Replace the generic clone URL in both READMEs with the real repository URL.
-3. Decide whether the primary distribution is the Git/plugin bundle, the universal plugin directory, or both.
-4. Configure Windows code-signing secrets before promoting the optional installer broadly.
+3. Treat the self-contained Windows installer as the primary end-user distribution and the Git/plugin bundle as the developer distribution.
+4. Configure Windows code-signing secrets before promoting the installer broadly.
 5. Confirm matching versions in `package.json`, `package-lock.json`, and `plugins/codex-avatars/.codex-plugin/plugin.json`.
 6. Review every bundled hook and ensure the trust prompt describes the final command hash.
 
@@ -23,17 +23,17 @@ npm run dist
 
 Also run the `skill-creator` quick validator on `plugins/codex-avatars/skills/create-codex-avatar` and the `plugin-creator` validator on `plugins/codex-avatars`.
 
-Test the optional unpacked executable at `dist/win-unpacked/Codex Avatars.exe`. Use a temporary `CODEX_HOME` for standalone hook merge tests; do not mutate a maintainer's real hook configuration during release validation.
+Confirm that `dist/win-unpacked/resources/integration` contains the marketplace and plugin, then test the unpacked executable at `dist/win-unpacked/Codex Avatars.exe`. Use a temporary `CODEX_HOME` for standalone hook merge tests; do not mutate a maintainer's real hook configuration during release validation.
 
 ## Publish through GitHub Actions
 
 ```powershell
-git tag v0.2.0
+git tag v0.3.0
 git push origin main
-git push origin v0.2.0
+git push origin v0.3.0
 ```
 
-The tag runs tests, builds the NSIS fallback, creates a source/plugin zip with `git archive`, generates SHA-256 checksums, uploads the workflow artifact, and attaches both distribution forms to the GitHub Release.
+The tag runs tests, builds the self-contained NSIS installer, creates a source/plugin zip with `git archive`, generates SHA-256 checksums, uploads the workflow artifact, and attaches both distribution forms to the GitHub Release.
 
 ## Marketplace and plugin directory
 

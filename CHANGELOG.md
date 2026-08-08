@@ -6,7 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-08
+
 ### Added
+
+- Self-contained Windows installer with no Node.js or Git requirement for end users.
+- Bundled Codex marketplace and plugin, plus a one-click handoff back to the Codex plugin screen.
+- Automatic standalone hook activation during installation and reversible cleanup during uninstall.
+- Exact packaged-app discovery through the per-user `CODEX_AVATARS_APP` environment value.
 
 - Repo marketplace, Codex lifecycle plugin hooks, and a `create-codex-avatar` skill.
 - All-display, selected-display, and custom-rectangle roaming zones.
@@ -18,7 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Split the alpha-zero sprite overlay from the normal settings window.
 - Added permanent Windows tray controls and passive-mode recovery.
 - Start the local companion from the first Codex lifecycle event when it is absent.
-- Expanded validation to 21 automated tests plus overlay and settings captures.
+- Expanded validation to 25 automated tests plus overlay and settings captures.
 
 ## [0.1.0] - 2026-08-06
 
