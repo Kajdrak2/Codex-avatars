@@ -37,6 +37,28 @@ test('extracts only task, model, and effort metadata from a local rollout', asyn
   await fs.rm(root, { recursive: true, force: true });
 });
 
+test('refreshes metadata from the latest turn context instead of keeping the creation context', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-avatar-latest-metadata-'));
+  const day = path.join(root, '2026', '08', '08');
+  const id = '019fe0d3-3d8e-7001-909f-941e3f0a945f';
+  const rollout = path.join(day, `rollout-test-${id}.jsonl`);
+  await fs.mkdir(day, { recursive: true });
+  await fs.writeFile(rollout, [
+    JSON.stringify({ type: 'session_meta', payload: { id, agent_path: '/root/scout' } }),
+    JSON.stringify({ type: 'turn_context', payload: { model: 'gpt-5.6-terra', effort: 'medium' } }),
+    JSON.stringify({ type: 'turn_context', payload: { model: 'gpt-5.6-sol', effort: 'high' } }),
+  ].join('\n'));
+  const resolver = new AgentMetadataResolver(root, { retryDelays: [0] });
+  assert.deepEqual(await resolver.resolve(id), {
+    label: 'Scout', nickname: null, model: 'gpt-5.6-sol', effort: 'high',
+  });
+  await fs.appendFile(rollout, `\n${JSON.stringify({ type: 'turn_context', payload: { model: 'gpt-5.6-terra', effort: 'low' } })}`);
+  assert.deepEqual(await resolver.resolve(id, { refresh: true }), {
+    label: 'Scout', nickname: null, model: 'gpt-5.6-terra', effort: 'low',
+  });
+  await fs.rm(root, { recursive: true, force: true });
+});
+
 test('labels a main agent from the local Codex task-title index', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-avatar-root-metadata-'));
   const sessions = path.join(root, 'sessions');

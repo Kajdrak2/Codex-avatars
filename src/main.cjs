@@ -96,7 +96,6 @@ let isQuitting = false;
 let metadataResolver = null;
 let threadTitleMonitor = null;
 const pendingMetadata = new Set();
-const resolvedMetadata = new Set();
 let demoSessionId = null;
 const demoTimers = new Set();
 let updateCheckStarted = false;
@@ -289,9 +288,9 @@ function enrichMetadata(event) {
   const target = metadataTarget(event);
   if (!target || !target.id) return;
   const key = `${event.sessionId}:${target.id}`;
-  if (pendingMetadata.has(key) || resolvedMetadata.has(key)) return;
+  if (pendingMetadata.has(key)) return;
   pendingMetadata.add(key);
-  void metadataResolver.resolve(target.id, { isRoot: target.isRoot }).then((metadata) => {
+  void metadataResolver.resolve(target.id, { isRoot: target.isRoot, refresh: true }).then((metadata) => {
     if (!metadata) return;
     const applied = store.apply({
       kind: 'agent.metadata',
@@ -302,12 +301,13 @@ function enrichMetadata(event) {
       // enrichment read can never overwrite a newer task rename.
       agentLabel: target.isRoot ? null : metadata.label,
       agentNickname: metadata.nickname,
-      model: metadata.model,
-      effort: metadata.effort,
+      // A lifecycle event is the freshest source when Codex provides these
+      // fields. The local rollout fills only values absent from that event.
+      model: event.model ? null : metadata.model,
+      effort: event.effort ? null : metadata.effort,
       timestamp: Date.now(),
     });
     if (applied) {
-      resolvedMetadata.add(key);
       broadcastState();
     }
   }).finally(() => pendingMetadata.delete(key));
@@ -340,15 +340,10 @@ function applyThreadTitles(titles) {
 function handlePayload(payload) {
   const event = normalizeHookEvent(payload);
   if ((capturePath || settingsCapturePath) && event) process.stderr.write(`[avatars] event=${event.kind}\n`);
-  const target = event ? metadataTarget(event) : null;
-  const targetKnown = target
-    ? store.hasAgent(event.sessionId, target.id, target.isRoot)
-    : true;
   const rootKnown = event
     ? store.hasAgent(event.sessionId, event.sessionId, true)
     : true;
   if (event && store.apply(event)) {
-    if (target && !targetKnown) resolvedMetadata.delete(`${event.sessionId}:${target.id}`);
     broadcastState();
     enrichMetadata(event);
     if (!rootKnown) void threadTitleMonitor?.refresh();

@@ -47,16 +47,11 @@ function metadataFromRecords(sessionMeta, turnContext) {
 async function readMetadataFile(filePath) {
   let sessionMeta = null;
   let turnContext = null;
-  let lines = 0;
   const input = fs.createReadStream(filePath, { encoding: 'utf8' });
   const reader = readline.createInterface({ input, crlfDelay: Infinity });
   try {
     for await (const line of reader) {
-      lines += 1;
-      if (!line.includes('"type":"session_meta"') && !line.includes('"type":"turn_context"')) {
-        if (lines >= 600 && sessionMeta) break;
-        continue;
-      }
+      if (!line.includes('"type":"session_meta"') && !line.includes('"type":"turn_context"')) continue;
       try {
         const record = JSON.parse(line);
         if (record.type === 'session_meta') sessionMeta = record.payload || null;
@@ -64,7 +59,6 @@ async function readMetadataFile(filePath) {
       } catch {
         // A file can be observed while Codex is still appending its current line.
       }
-      if (sessionMeta && turnContext) break;
     }
   } finally {
     reader.close();
@@ -146,7 +140,7 @@ class AgentMetadataResolver {
     const isRoot = Boolean(options.isRoot);
     const cacheKey = `${isRoot ? 'root' : 'agent'}:${agentId}`;
     const cached = this.metadataCache.get(cacheKey);
-    if (cached) return { ...cached };
+    if (cached && !options.refresh) return { ...cached };
 
     let partial = null;
     for (const wait of this.retryDelays) {

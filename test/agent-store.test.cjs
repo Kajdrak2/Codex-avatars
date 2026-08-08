@@ -82,6 +82,15 @@ test('records model and effort on the main agent when available', () => {
   assert.equal(root.effort, 'high');
 });
 
+test('prefers model and effort from the latest explicit lifecycle event', () => {
+  const store = new AgentStore();
+  store.apply({ kind: 'session.started', sessionId: 'current-model', model: 'gpt-5.6-terra', effort: 'medium', timestamp: 1 });
+  store.apply({ kind: 'session.working', sessionId: 'current-model', model: 'gpt-5.6-sol', effort: 'high', timestamp: 2 });
+  const root = store.snapshot().sessions[0].agents[0];
+  assert.equal(root.model, 'gpt-5.6-sol');
+  assert.equal(root.effort, 'high');
+});
+
 test('replaces the main-agent fallback with the Codex task title', () => {
   const store = new AgentStore();
   store.apply({ kind: 'session.started', sessionId: '019fd6b6-6e4f-71f0-a2ad-e46cc2f08757', project: 'avatars', timestamp: 1 });
