@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-08
+
+### Fixed
+
+- GitHub Actions release builds no longer attempt Electron Builder's implicit secondary publish without a token.
+
 ## [0.6.0] - 2026-08-08
 
 ### Changed
