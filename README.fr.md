@@ -2,7 +2,7 @@
 
 Codex Avatars donne un compagnon animé indépendant à la tâche principale et à chaque sous-agent Codex. Les personnages utilisent le format natif des Pets Codex v2 et se déplacent directement sur un ou plusieurs écrans, sans dock, panneau coloré ni fond visible.
 
-> État du projet : la version `0.6.7` est publiée sur GitHub avec un installeur Windows autonome, un paquet plugin prêt pour Git, des déplacements et glisser-déposer multi-écrans suivant la disposition Windows, le réglage des tailles en direct, le partage portable des Pets, des aperçus fiables dans l’exécutable et une fin de création Hatch Pet explicite. L’installeur n’est pas encore signé.
+> État du projet : la version `0.6.7` est publiée sur GitHub. La build de test actuelle `0.7.0-beta.11` ajoute le marketplace externe de Pets V2, la publication automatique après une CI protégée, le signalement public des Pets depuis l’application, la soumission directe via GitHub, la réconciliation continue des tâches multiples, une étape visible pour le code d’appareil GitHub, des aperçus fiables pour les Pets propres au fork et le retour guidé décrits plus bas. L’installeur n’est pas encore signé.
 
 ## Ce qui est déjà pris en charge
 
@@ -19,6 +19,10 @@ Codex Avatars donne un compagnon animé indépendant à la tâche principale et 
 - Affichage facultatif des agents récemment au repos ou terminés sous forme de Pets endormis et immobiles pendant 30 minutes maximum.
 - Les événements de fin reçus en retard ne peuvent plus faire réapparaître un avatar endormi expiré.
 - Formulaire de création personnalisé ouvrant une tâche Codex avec le prompt déjà préparé.
+- Parcours, recherche, aperçu et installation directe des Pets V2 dédupliqués du fork contrôlé Codex Avatars et du catalogue original Awesome Codex Pet.
+- Validation et soumission directe d’un Pet V2 local au catalogue via GitHub, sans consommer de crédits Codex.
+- Signalement d’un Pet publié depuis sa carte du marketplace au moyen d’une issue GitHub publique préremplie.
+- Ouverture directe d’un signalement de bug ou d’une suggestion GitHub guidée, avec la version installée préremplie.
 - Import et partage de packages `.codexpet` validés depuis la galerie locale.
 - Mode passif avec trois portes de sortie permanentes : réglages, icône de notification Windows et `Ctrl+Alt+A`.
 - Bouton pour masquer ou réafficher tous les avatars depuis les réglages ou l’icône de notification, sans fermer le compagnon.
@@ -81,6 +85,16 @@ L’overlay n’a volontairement aucun panneau. Ouvre les réglages depuis l’i
 - **Tailles principale/sous-agent, noms, modèle/effort, agents dormants et mouvement** : les options s’appliquent immédiatement et sont conservées localement.
 - **Démo** : le même bouton la lance et l’arrête, puis supprime tous les agents synthétiques.
 
+## Marketplace communautaire V2
+
+Les réglages fusionnent le [fork de catalogue contrôlé par Codex Avatars](https://github.com/Kajdrak2/awesome-codex-pet) avec le catalogue original [Awesome Codex Pet](https://github.com/legeling/awesome-codex-pet). Le fork est prioritaire : un identifiant identique ou une spritesheet strictement identique n’apparaît qu’une fois, tandis que des assets d’empreintes différentes restent disponibles comme vraies variantes. Les nouveaux Pets présents uniquement dans l’original restent donc visibles sans dupliquer les entrées miroirs. Codex Avatars n’affiche que les entrées V2 natives (`1536x2288`, 8 colonnes × 11 lignes), avec recherche et filtres par catégorie. Chaque source possède son propre cache validé ; l’indisponibilité de l’une ne bloque ni l’autre catalogue, ni les Pets locaux, ni l’overlay.
+
+Le bouton **Installer** télécharge uniquement `pet.json` et `spritesheet.webp` depuis le dépôt source autorisé du Pet. L’application vérifie les tailles et SHA-256 déclarés, le manifeste V2 et les dimensions de l’atlas, installe les deux fichiers de façon atomique et refuse d’écraser un autre Pet local portant le même identifiant. Elle n’exécute jamais les scripts shell des catalogues.
+
+Pour contribuer, sélectionne un Pet V2 local terminé dans **Soumettre l’un de vos Pets**, puis **Soumettre avec GitHub**. Un compte GitHub est obligatoire car le catalogue reçoit les contributions sous forme de pull requests publiques ; Codex ne s’ouvre pas et aucun crédit Codex n’est utilisé. Le formulaire intégré affiche l’atlas final, valide les dimensions V2 et la limite amont de 5 Mo, contrôle les identifiants, clés canoniques, noms et empreintes exactes, puis recueille auteur, catégorie, type de source, conditions non commerciales et confirmations explicites de revue visuelle. Pour un Pet original ou généré indépendamment, les notes de source sont créées automatiquement ; le champ de réutilisation/attribution n’apparaît que si le type de source exige des précisions.
+
+La première connexion utilise le parcours navigateur de l’outil officiel GitHub CLI. Codex Avatars réutilise d’abord une session GitHub CLI fonctionnelle lorsqu’elle existe déjà. Sinon, l’application télécharge une version Windows épinglée depuis la release officielle `cli/cli`, vérifie les SHA-256 de l’archive et de l’exécutable, attend le code temporaire, le copie puis ouvre GitHub afin que l’utilisateur se connecte ou crée un compte. **Ouvrir GitHub** reste disponible pendant l’autorisation et l’annulation ne bloque jamais la fenêtre de soumission. GitHub CLI gère les identifiants ; Codex Avatars retire les jetons d’environnement ambiants et ne lit jamais de jeton. Le login GitHub connecté devient l’auteur proposé par défaut et est mémorisé localement. La clé canonique apparaît immédiatement depuis la catégorie et l’identifiant du Pet, inclut l’auteur pour les personnages originaux et reste modifiable. Après une confirmation native séparée, l’application crée directement une branche quand le compte connecté contrôle `Kajdrak2/awesome-codex-pet` ; les autres contributeurs utilisent un fork existant ou nouvellement créé dans le même réseau. Elle enregistre exactement `submission.json`, `pet.json` et `spritesheet.webp` avec le format JSON Prettier exigé par le catalogue. Si le même Pet possède déjà une soumission ouverte, Codex Avatars met à jour la pull request correspondante la plus récente au lieu d’en créer une autre ; sinon, l’application ouvre une pull request prête pour revue vers le catalogue contrôlé. Une soumission ciblée n’est publiée automatiquement qu’après la réussite du workflow protégé pour son commit exact. Un Pet déjà publié peut être signalé depuis sa carte : l’application prépare une issue GitHub publique et l’utilisateur garde la main sur son envoi final. Les deux catalogues et chaque Pet conservent leurs auteurs et conditions de licence.
+
 ## Créer un avatar depuis Work ou Codex
 
 Dans les réglages, ouvre le studio de personnage, décris l’apparence, le style, la personnalité, les couleurs, les accessoires et ce qu’il faut éviter, puis choisis **Créer dans Codex**. L’application ouvre `codex://threads/new` avec le prompt prêt. Ce préremplissage étant un détail de l’application de bureau qui n’est pas encore documenté comme contrat public, le même prompt n’est copié qu’en solution de secours si l’ouverture échoue.
@@ -96,6 +110,8 @@ Le hook ne copie que : nom de l’événement, identifiants de session/tour/agen
 Comme les hooks ne publient pas encore les titres de tâche, le nom de tâche de collaboration, le modèle ou l’effort, le compagnon lit le titre principal dans l’index local `session_index.jsonl` et surveille cet index pour détecter les renommages, puis corrèle `agent_id` avec le rollout correspondant et n’en extrait que `agent_path`, `model` et `effort`. Aucun contenu de conversation n’est recopié dans son état ou ses réglages.
 
 Les événements passent par le canal local `codex-avatars-v1`. Aucun serveur TCP ni service distant n’est utilisé.
+
+La consultation du marketplace, l’installation de Pets, la vérification des mises à jour, la soumission GitHub directe et l’ouverture d’un signalement public de Pet sont les fonctions réseau sortantes facultatives. Le processus principal récupère les deux manifestes publics, les aperçus depuis `codexpet.top` et les fichiers du Pet choisi uniquement depuis des chemins fixes de `Kajdrak2/awesome-codex-pet` ou `legeling/awesome-codex-pet`. La soumission utilise un téléchargement GitHub CLI officiel fixe et des endpoints API ciblant le fork contrôlé après autorisation navigateur et confirmation explicite. Un signalement ouvre une URL d’issue GitHub fixe qui contient uniquement le motif choisi, l’explication bornée écrite par l’utilisateur, la version de l’application et les métadonnées publiques vérifiées du catalogue ; l’utilisateur l’envoie ensuite sur GitHub. Le renderer sandboxé conserve `connect-src 'none'` et ne reçoit que des métadonnées bornées, des URL d’images locales, l’état de connexion et la progression.
 
 ## Commandes de développement
 
@@ -115,7 +131,9 @@ npm run dist
 ## Limites actuelles
 
 - Les hooks Codex donnent un `agent_id` à `SubagentStart` et `SubagentStop`, mais les hooks d’outils n’identifient pas individuellement leur sous-agent. L’outil n’invente donc pas l’auteur d’une commande.
-- Il n’existe pas de marketplace publique officielle des Pets. La galerie intégrée fournit une couche sûre d’import/export, adaptée au partage par GitHub ou un autre catalogue ; voir [docs/pet-gallery.md](docs/pet-gallery.md).
+- Le marketplace intégré est un catalogue communautaire tiers, pas un service officiel OpenAI. La consultation peut utiliser un cache récent hors ligne, mais l’installation d’un nouveau Pet nécessite une connexion.
+- Publier un Pet exige un compte GitHub, un contrôle de doublons en direct, une autorisation navigateur et une confirmation native finale ; aucun crédit Codex n’est nécessaire.
+- De nombreux Pets communautaires ont des conditions non commerciales ou représentent des personnages tiers. L’utilisateur reste responsable de vérifier la licence et la source affichées en amont.
 - Un plugin seul ne peut pas dessiner au-dessus de tout Windows ; le renderer local est une contrainte du système, pas une intégration simulée.
 - La version publique devra être signée avant une diffusion large afin d’éviter l’avertissement SmartScreen.
 

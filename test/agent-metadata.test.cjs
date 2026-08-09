@@ -8,9 +8,11 @@ const path = require('node:path');
 const {
   AgentMetadataResolver,
   ThreadTitleMonitor,
+  readRecentAgentActivityRecords,
   readRecentAgentRecords,
   readThreadName,
   readThreadNames,
+  rolloutActivityFromRecords,
   safeThreadName,
   taskLabelFromPath,
 } = require('../src/core/agent-metadata.cjs');
@@ -63,6 +65,63 @@ test('hydrates recently active roots and subagents without waiting for another h
     { sessionId, agentId: sessionId, isRoot: true, label: null },
   ]);
   await fs.rm(root, { recursive: true, force: true });
+});
+
+test('reconciles two concurrently working root tasks and observes completion from rollout state', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-avatar-activity-'));
+  const day = path.join(root, '2026', '08', '09');
+  const first = '019fd6b6-6e4f-71f0-a2ad-e46cc2f08757';
+  const second = '019fe095-b10e-7832-8d14-f2dd72119b40';
+  const firstPath = path.join(day, `rollout-first-${first}.jsonl`);
+  const secondPath = path.join(day, `rollout-second-${second}.jsonl`);
+  await fs.mkdir(day, { recursive: true });
+  const workingRecords = (id, cwd) => [
+    JSON.stringify({ timestamp: '2026-08-09T11:00:00.000Z', type: 'session_meta', payload: { id, session_id: id, cwd } }),
+    JSON.stringify({ timestamp: '2026-08-09T11:00:01.000Z', type: 'turn_context', payload: { model: 'gpt-5.6-terra', effort: 'medium' } }),
+    JSON.stringify({ timestamp: '2026-08-09T11:00:02.000Z', type: 'event_msg', payload: { type: 'user_message' } }),
+    JSON.stringify({ timestamp: '2026-08-09T11:00:03.000Z', type: 'response_item', payload: { type: 'message', phase: 'commentary' } }),
+  ].join('\n');
+  await fs.writeFile(firstPath, workingRecords(first, 'C:\\Projects\\avatars'));
+  await fs.writeFile(secondPath, workingRecords(second, 'C:\\Projects\\router'));
+
+  const cache = new Map();
+  let records = await readRecentAgentActivityRecords(root, {
+    cache, changedOnly: true, maxAgeMs: 60_000,
+  });
+  assert.deepEqual(records.map((record) => ({
+    id: record.sessionId, activity: record.activity, project: record.project,
+  })).sort((left, right) => left.id.localeCompare(right.id)), [
+    { id: first, activity: 'working', project: 'avatars' },
+    { id: second, activity: 'working', project: 'router' },
+  ]);
+  assert.deepEqual(await readRecentAgentActivityRecords(root, {
+    cache, changedOnly: true, maxAgeMs: 60_000,
+  }), []);
+
+  await fs.appendFile(secondPath, `\n${JSON.stringify({
+    timestamp: '2026-08-09T11:00:04.000Z',
+    type: 'event_msg',
+    payload: { type: 'agent_message', phase: 'final_answer' },
+  })}`);
+  records = await readRecentAgentActivityRecords(root, {
+    cache, changedOnly: true, maxAgeMs: 60_000,
+  });
+  assert.equal(records.length, 1);
+  assert.equal(records[0].sessionId, second);
+  assert.equal(records[0].activity, 'idle');
+  await fs.rm(root, { recursive: true, force: true });
+});
+
+test('classifies aborted turns as idle without letting trailing token counts wake them', () => {
+  assert.deepEqual(rolloutActivityFromRecords([
+    { timestamp: '2026-08-09T11:00:00.000Z', type: 'turn_context', payload: {} },
+    { timestamp: '2026-08-09T11:00:01.000Z', type: 'event_msg', payload: { type: 'agent_reasoning' } },
+    { timestamp: '2026-08-09T11:00:02.000Z', type: 'event_msg', payload: { type: 'turn_aborted' } },
+    { timestamp: '2026-08-09T11:00:03.000Z', type: 'event_msg', payload: { type: 'token_count' } },
+  ], 0), {
+    activity: 'idle',
+    activityAt: Date.parse('2026-08-09T11:00:02.000Z'),
+  });
 });
 
 test('refreshes metadata from the latest turn context instead of keeping the creation context', async () => {

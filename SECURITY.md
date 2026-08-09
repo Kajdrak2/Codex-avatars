@@ -4,6 +4,8 @@
 
 Please do not open a public issue for a vulnerability that could expose local data or modify Codex configuration unexpectedly. Contact the repository maintainers privately through the security-reporting channel configured on the Git hosting service.
 
+The marketplace **Report** action is only for concerns about a published Pet. It prepares a public issue in the controlled catalog; never include passwords, tokens, private conversations, personal data, or an undisclosed vulnerability in that report.
+
 ## Security boundaries
 
 - The renderer has no Node.js access and runs with context isolation and sandboxing.
@@ -15,6 +17,12 @@ Please do not open a public issue for a vulnerability that could expose local da
 - Plugin hooks remain non-managed hooks and must pass Codex's hash-based trust review before execution.
 - Avatar asset paths are confined to each Pet package and exposed to the renderer through a private protocol.
 - Portable Pet imports accept only an allowlisted set of root files, reject traversal and oversize input, validate the v2 manifest and WebP dimensions, stage atomically, and never overwrite an existing directory.
+- Marketplace access is confined to fixed `Kajdrak2/awesome-codex-pet`, `legeling/awesome-codex-pet`, and `codexpet.top` manifest, preview, and raw Pet paths. Both catalog caches are schema-validated independently; catalog and asset responses are size-limited, and Pet bytes plus SHA-256 hashes must match the corresponding integrity manifest before the same atomic V2 validation and installation path is used.
+- Direct submission requires explicit GitHub connection and publication actions. A missing GitHub CLI is downloaded only from the pinned official `cli/cli` release, with fixed archive and executable SHA-256 checks before execution; extraction selects only `gh.exe` and its license.
+- GitHub CLI owns browser authentication and credential storage. A working existing CLI session can be reused without exporting its token; otherwise the verified managed CLI performs a cancellable browser/device flow. Child processes discard ambient GitHub token environment variables, the application never calls `gh auth token`, API endpoints are fixed to the selected account fork and `Kajdrak2/awesome-codex-pet`, and the returned pull-request URL is allowlisted before opening.
+- Submission input is bounded and validated, the local Pet is never modified, exact asset/id duplicates are blocked against a fresh catalog, and no remote write starts before a native confirmation naming the account, repository, and three public files.
+- Pet reports accept only fixed reason values, bounded user text, and verified metadata from one of the two allowlisted catalog records. They open a fixed public GitHub issue URL for final user review and never submit a report silently.
+- The sandboxed settings renderer retains `connect-src 'none'`; all optional marketplace and GitHub networking occurs in the main process and only bounded metadata, local cached thumbnail URLs, account status, and progress events cross the IPC bridge.
 - Agent-name/model enrichment reads only `thread_name` from the local session index plus `session_meta` and `turn_context` fields from the matching rollout; no prompt, response, tool payload, or transcript content is copied into application state.
 
 Public Windows installers should be code-signed. Users should verify release checksums and review Codex hook trust prompts before enabling them; the installer never bypasses that review.

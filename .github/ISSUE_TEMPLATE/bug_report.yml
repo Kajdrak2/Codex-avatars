@@ -1,0 +1,43 @@
+name: Bug report
+description: Report a reproducible problem in Codex Avatars
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping improve Codex Avatars. Remove secrets and personal data from screenshots or logs.
+  - type: input
+    id: version
+    attributes:
+      label: Codex Avatars version
+      placeholder: e.g. 0.7.0-beta.7
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open...
+        2. Select...
+        3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include your Windows version and display layout when relevant.
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshots or logs
+      description: Add only material that contains no secrets or personal data.

@@ -1,0 +1,33 @@
+name: Feature suggestion
+description: Suggest an improvement for Codex Avatars
+title: "[Suggestion] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for sharing an idea for Codex Avatars.
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggestion
+      description: Describe the improvement you would like.
+    validations:
+      required: true
+  - type: textarea
+    id: need
+    attributes:
+      label: Problem or need
+      description: What workflow would this suggestion improve?
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Proposed behavior
+      description: How should it work in Codex Avatars?
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add mockups, examples, or alternatives if useful.

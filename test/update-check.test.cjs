@@ -10,6 +10,12 @@ test('compares three-part release versions', () => {
   assert.equal(compareVersions('preview', '0.4.9'), null);
 });
 
+test('orders prerelease builds below their stable release', () => {
+  assert.equal(compareVersions('0.7.0', '0.7.0-beta.1') > 0, true);
+  assert.equal(compareVersions('0.7.0-beta.2', '0.7.0-beta.1') > 0, true);
+  assert.equal(compareVersions('0.7.0-beta.1', '0.7.0') < 0, true);
+});
+
 test('accepts a newer stable GitHub release and its installer asset', () => {
   const update = parseLatestRelease({
     tag_name: 'v0.5.0', html_url: 'https://github.com/Kajdrak2/Codex-avatars/releases/tag/v0.5.0',

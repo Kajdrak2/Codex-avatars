@@ -19,11 +19,17 @@ const {
   Tray,
 } = require('electron');
 const { AgentStore } = require('./core/agent-store.cjs');
-const { AgentMetadataResolver, ThreadTitleMonitor, readRecentAgentRecords } = require('./core/agent-metadata.cjs');
+const { reconcileAgentActivityRecords } = require('./core/agent-activity-reconciler.cjs');
+const {
+  AgentMetadataResolver,
+  ThreadTitleMonitor,
+  readRecentAgentActivityRecords,
+} = require('./core/agent-metadata.cjs');
 const { discoverAvatars, readWebpDimensions } = require('./core/avatar-library.cjs');
 const { reconcileAvatarSelection } = require('./core/avatar-selection.cjs');
 const { buildAvatarPrompt, codexNewThreadUrl } = require('./core/codex-launch.cjs');
 const { normalizeHookEvent } = require('./core/event-normalizer.cjs');
+const { buildFeedbackUrl, buildPetReportUrl } = require('./core/feedback-links.cjs');
 const { createEventServer } = require('./core/pipe-server.cjs');
 const {
   marketplacePath: resolvePluginMarketplacePath,
@@ -35,7 +41,28 @@ const {
   resolveRoamingZone,
   serializeDisplay,
 } = require('./core/roaming-zone.cjs');
-const { exportPetPackage, importPetPackage } = require('./core/pet-packages.cjs');
+const { exportPetPackage, importPetPackage, installPetBuffers } = require('./core/pet-packages.cjs');
+const {
+  CATALOG_GUIDE_URL,
+  CATALOG_SITE_URL,
+  MarketplaceClient,
+  safeCatalogSlug,
+  sha256,
+} = require('./core/marketplace-client.cjs');
+const {
+  GITHUB_DEVICE_AUTHORIZATION_URL,
+  GitHubCli,
+  normalizeGitHubDeviceCode,
+} = require('./core/github-cli.cjs');
+const {
+  CANONICAL_CATEGORY_PREFIXES: MARKETPLACE_CANONICAL_CATEGORY_PREFIXES,
+  CATEGORIES: MARKETPLACE_CATEGORIES,
+  GitHubMarketplacePublisher,
+  SOURCE_TYPES: MARKETPLACE_SOURCE_TYPES,
+  SOURCE_TYPES_REQUIRING_NOTES: MARKETPLACE_SOURCE_TYPES_REQUIRING_NOTES,
+  analyzeCatalogDuplicates,
+  prepareLocalSubmission,
+} = require('./core/marketplace-submission.cjs');
 const { mergeSettings, SettingsStore } = require('./core/settings-store.cjs');
 const { checkForUpdate } = require('./core/update-check.cjs');
 const {
@@ -88,6 +115,7 @@ let zonePickerBounds = null;
 let tray = null;
 let cleanupTimer = null;
 let avatarRefreshTimer = null;
+let agentActivityTimer = null;
 let avatarRecords = [];
 let avatarErrors = [];
 let assetPaths = new Map();
@@ -96,9 +124,18 @@ let isQuitting = false;
 let metadataResolver = null;
 let threadTitleMonitor = null;
 const pendingMetadata = new Set();
+const recentAgentActivityCache = new Map();
+let agentActivityRefreshPromise = null;
 let demoSessionId = null;
 const demoTimers = new Set();
 let updateCheckStarted = false;
+let marketplaceClient = null;
+const pendingMarketplaceInstalls = new Map();
+let githubCli = null;
+let githubPublisher = null;
+let pendingGithubConnection = null;
+let pendingGithubConnectionAbortController = null;
+let pendingMarketplaceSubmission = null;
 
 function findArgument(prefix) {
   const argument = process.argv.find((value) => value.startsWith(prefix));
@@ -166,6 +203,44 @@ async function openPluginInCodex() {
   }
 }
 
+async function openFeedback() {
+  const french = settings?.language === 'fr';
+  const result = await dialog.showMessageBox(settingsWindow, {
+    type: 'question',
+    title: 'Codex Avatars',
+    message: french ? 'Que souhaitez-vous partager ?' : 'What would you like to share?',
+    detail: french
+      ? 'GitHub s’ouvrira avec un brouillon guidé et la version de Codex Avatars déjà renseignée.'
+      : 'GitHub will open with a guided draft and your Codex Avatars version already filled in.',
+    buttons: french
+      ? ['Signaler un bug', 'Proposer une amélioration', 'Annuler']
+      : ['Report a bug', 'Suggest an improvement', 'Cancel'],
+    defaultId: 0,
+    cancelId: 2,
+    noLink: true,
+  });
+  if (result.response === 2) return { opened: false, cancelled: true };
+  const kind = result.response === 0 ? 'bug' : 'suggestion';
+  const url = buildFeedbackUrl({ kind, version: app.getVersion(), language: settings?.language });
+  await shell.openExternal(url);
+  return { opened: true, cancelled: false, kind };
+}
+
+async function openMarketplacePetReport(rawSlug, payload) {
+  if (!marketplaceClient) throw new Error('The marketplace is not ready yet.');
+  const slug = safeCatalogSlug(rawSlug);
+  const record = await marketplaceClient.record(slug, { signal: AbortSignal.timeout(12_000) });
+  const url = buildPetReportUrl({
+    pet: record,
+    reason: payload?.reason,
+    details: payload?.details,
+    version: app.getVersion(),
+    language: settings?.language,
+  });
+  await shell.openExternal(url);
+  return { opened: true, slug };
+}
+
 function publicAvatar(record) {
   return {
     id: record.id,
@@ -185,6 +260,206 @@ function publicAvatar(record) {
 
 function publicAvatars() {
   return avatarRecords.map(publicAvatar);
+}
+
+function publicMarketplaceCatalog(catalog) {
+  const installedIds = new Set(avatarRecords.map((avatar) => avatar.id));
+  return {
+    provider: catalog.provider,
+    repositoryUrl: catalog.repositoryUrl,
+    siteUrl: catalog.siteUrl,
+    guideUrl: catalog.guideUrl,
+    fetchedAt: catalog.fetchedAt,
+    source: catalog.source,
+    stale: Boolean(catalog.stale),
+    duplicateCount: catalog.duplicateCount,
+    sources: catalog.sources,
+    pets: catalog.pets.map((pet) => ({
+      slug: pet.slug,
+      name: pet.name,
+      localizedNames: pet.localizedNames,
+      author: pet.author,
+      authorHandle: pet.authorHandle,
+      authorUrl: pet.authorUrl,
+      primaryCategory: pet.primaryCategory,
+      collections: pet.collections,
+      license: pet.license,
+      description: pet.description,
+      spriteVersionNumber: 2,
+      spritesheetBytes: pet.spritesheetBytes,
+      catalogSource: pet.catalogSource,
+      repository: pet.repository,
+      detailsUrl: pet.detailsUrl,
+      installed: installedIds.has(pet.slug),
+    })),
+  };
+}
+
+async function loadMarketplace(force = false) {
+  if (!marketplaceClient) throw new Error('The marketplace is not ready yet.');
+  const catalog = await marketplaceClient.load({
+    force,
+    signal: AbortSignal.timeout(12_000),
+  });
+  return publicMarketplaceCatalog(catalog);
+}
+
+async function installMarketplacePet(rawSlug) {
+  const slug = safeCatalogSlug(rawSlug);
+  if (pendingMarketplaceInstalls.has(slug)) return pendingMarketplaceInstalls.get(slug);
+  const operation = (async () => {
+    const record = await marketplaceClient.record(slug, { signal: AbortSignal.timeout(12_000) });
+    const existing = avatarRecords.find((avatar) => avatar.id === slug);
+    if (existing) {
+      const existingHash = sha256(await fs.readFile(existing.spritesheetPath));
+      if (existingHash === record.spritesheetSha256) {
+        return {
+          alreadyInstalled: true,
+          imported: { id: existing.id, displayName: existing.displayName, directory: existing.directory },
+        };
+      }
+      throw new Error(`A different local Pet already uses the marketplace id ${slug}.`);
+    }
+
+    const downloaded = await marketplaceClient.fetchPetFiles(slug, { signal: AbortSignal.timeout(60_000) });
+    const imported = await installPetBuffers(
+      downloaded.petJson,
+      downloaded.spritesheet,
+      path.join(codexHomePath(), 'pets'),
+      { requestedId: slug, collision: 'reject' },
+    );
+    await refreshAvatarLibrary();
+    return { alreadyInstalled: false, imported };
+  })();
+  pendingMarketplaceInstalls.set(slug, operation);
+  try {
+    return await operation;
+  } finally {
+    pendingMarketplaceInstalls.delete(slug);
+  }
+}
+
+function sendMarketplaceSubmissionProgress(stage, extra = {}) {
+  if (!settingsWindow || settingsWindow.isDestroyed() || settingsWindow.webContents.isDestroyed()) return;
+  settingsWindow.webContents.send('avatars:marketplace-submission-progress', { stage, ...extra });
+}
+
+async function marketplaceSubmissionStatus() {
+  if (!githubCli) throw new Error('GitHub submission is not ready yet.');
+  const github = await githubCli.status();
+  return {
+    github,
+    canonicalCategoryPrefixes: MARKETPLACE_CANONICAL_CATEGORY_PREFIXES,
+    categories: MARKETPLACE_CATEGORIES,
+    sourceTypes: MARKETPLACE_SOURCE_TYPES,
+    sourceTypesRequiringNotes: MARKETPLACE_SOURCE_TYPES_REQUIRING_NOTES,
+  };
+}
+
+async function connectMarketplaceGithub() {
+  if (!githubCli) throw new Error('GitHub submission is not ready yet.');
+  if (pendingGithubConnection) return pendingGithubConnection;
+  const abortController = new AbortController();
+  pendingGithubConnectionAbortController = abortController;
+  pendingGithubConnection = githubCli.connect({
+    signal: abortController.signal,
+    onProgress: (stage) => sendMarketplaceSubmissionProgress(stage),
+    onDeviceCode: (code) => {
+      clipboard.writeText(code);
+      sendMarketplaceSubmissionProgress('github-device-code-copied', { code });
+      void shell.openExternal(GITHUB_DEVICE_AUTHORIZATION_URL).catch(() => {
+        sendMarketplaceSubmissionProgress('github-browser-open-failed', { code });
+      });
+    },
+  }).then((github) => {
+    sendMarketplaceSubmissionProgress('github-connected', { login: github.login });
+    return {
+      github,
+      canonicalCategoryPrefixes: MARKETPLACE_CANONICAL_CATEGORY_PREFIXES,
+      categories: MARKETPLACE_CATEGORIES,
+      sourceTypes: MARKETPLACE_SOURCE_TYPES,
+      sourceTypesRequiringNotes: MARKETPLACE_SOURCE_TYPES_REQUIRING_NOTES,
+    };
+  }).finally(() => {
+    pendingGithubConnection = null;
+    if (pendingGithubConnectionAbortController === abortController) {
+      pendingGithubConnectionAbortController = null;
+    }
+  });
+  return pendingGithubConnection;
+}
+
+function cancelMarketplaceGithubConnection() {
+  const pending = Boolean(pendingGithubConnectionAbortController);
+  pendingGithubConnectionAbortController?.abort();
+  return { cancelled: pending };
+}
+
+async function submitMarketplacePetDirectly(payload) {
+  if (pendingMarketplaceSubmission) throw new Error('A marketplace submission is already in progress.');
+  const operation = (async () => {
+    const avatarId = typeof payload?.avatarId === 'string' ? payload.avatarId : '';
+    const record = avatarRecords.find((avatar) => avatar.id === avatarId);
+    if (!record) throw new Error('The selected local Pet is no longer available.');
+    const github = await githubCli.status();
+    if (!github.connected) {
+      const error = new Error('Connect a GitHub account before submitting this Pet.');
+      error.code = 'GITHUB_NOT_CONNECTED';
+      throw error;
+    }
+
+    sendMarketplaceSubmissionProgress('validating-local-pet');
+    const prepared = await prepareLocalSubmission(record, payload?.form, { githubLogin: github.login });
+    sendMarketplaceSubmissionProgress('checking-marketplace-duplicates');
+    const duplicateCatalog = await marketplaceClient.duplicateIndex({
+      force: true,
+      requireFresh: true,
+      signal: AbortSignal.timeout(20_000),
+    });
+    const duplicateReview = analyzeCatalogDuplicates(prepared, duplicateCatalog);
+    const french = settings?.language === 'fr';
+    const warningLines = duplicateReview.warnings.length > 0
+      ? `\n\n${french ? 'Points à examiner' : 'Review notes'}:\n${duplicateReview.warnings.map((warning) => `• ${warning}`).join('\n')}`
+      : '';
+    const confirmation = await dialog.showMessageBox(settingsWindow, {
+      type: 'warning',
+      title: french ? 'Publier ce Pet sur GitHub ?' : 'Publish this Pet on GitHub?',
+      message: french
+        ? `Créer une pull request publique pour ${prepared.name} ?`
+        : `Create a public pull request for ${prepared.name}?`,
+      detail: french
+        ? `Compte GitHub : @${github.login}\nDépôt : Kajdrak2/awesome-codex-pet\nFichiers publics : submission.json, pet.json et spritesheet.webp\n\nAucun crédit Codex ne sera utilisé. Cette action crée ou met à jour la branche et la pull request publiques de ce Pet.${warningLines}`
+        : `GitHub account: @${github.login}\nRepository: Kajdrak2/awesome-codex-pet\nPublic files: submission.json, pet.json, and spritesheet.webp\n\nNo Codex credits will be used. This action creates or updates this Pet's public branch and pull request.${warningLines}`,
+      buttons: french ? ['Publier la soumission', 'Annuler'] : ['Publish submission', 'Cancel'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+    });
+    if (confirmation.response !== 0) {
+      sendMarketplaceSubmissionProgress('submission-cancelled');
+      return { cancelled: true };
+    }
+
+    const published = await githubPublisher.publish(prepared, {
+      login: github.login,
+      warnings: duplicateReview.warnings,
+      onProgress: (stage) => sendMarketplaceSubmissionProgress(stage),
+    });
+    sendMarketplaceSubmissionProgress('submission-complete', { url: published.url });
+    let opened = true;
+    try {
+      await shell.openExternal(published.url);
+    } catch {
+      opened = false;
+    }
+    return { cancelled: false, opened, ...published };
+  })();
+  pendingMarketplaceSubmission = operation;
+  try {
+    return await operation;
+  } finally {
+    pendingMarketplaceSubmission = null;
+  }
 }
 
 function currentDisplays() {
@@ -315,34 +590,25 @@ function enrichMetadata(event) {
 
 async function hydrateRecentAgents() {
   if (!metadataResolver) return;
-  let records = [];
-  try {
-    records = await readRecentAgentRecords(metadataResolver.sessionsRoot);
-  } catch {
-    return;
-  }
-  let changed = false;
-  for (const record of records) {
-    const metadata = record.metadata || {};
-    if (record.isRoot) {
-      changed = store.apply({
-        kind: 'session.working', sessionId: record.sessionId, project: 'Codex',
-        agentLabel: metadata.label || null, model: metadata.model || null,
-        effort: metadata.effort || null, timestamp: record.modifiedAt,
-      }) || changed;
-    } else {
-      changed = store.apply({
-        kind: 'agent.started', sessionId: record.sessionId, agentId: record.agentId,
-        agentType: 'subagent', agentLabel: metadata.label || null,
-        agentNickname: metadata.nickname || null, model: metadata.model || null,
-        effort: metadata.effort || null, timestamp: record.modifiedAt,
-      }) || changed;
+  if (agentActivityRefreshPromise) return agentActivityRefreshPromise;
+  agentActivityRefreshPromise = (async () => {
+    let records = [];
+    try {
+      records = await readRecentAgentActivityRecords(metadataResolver.sessionsRoot, {
+        cache: recentAgentActivityCache,
+        changedOnly: true,
+      });
+    } catch {
+      return;
     }
-  }
-  if (changed) {
-    broadcastState();
-    void threadTitleMonitor?.refresh();
-  }
+
+    const { changed, discoveredRoot } = reconcileAgentActivityRecords(store, records);
+    if (changed) broadcastState();
+    if (discoveredRoot) void threadTitleMonitor?.refresh();
+  })().finally(() => {
+    agentActivityRefreshPromise = null;
+  });
+  return agentActivityRefreshPromise;
 }
 
 function activeThreadIds() {
@@ -622,9 +888,11 @@ function createSettingsWindow() {
   settingsWindow.on('close', (event) => {
     if (isQuitting) return;
     event.preventDefault();
+    cancelMarketplaceGithubConnection();
     settingsWindow.hide();
   });
   settingsWindow.on('closed', () => {
+    cancelMarketplaceGithubConnection();
     settingsWindow = null;
   });
   settingsWindow.once('ready-to-show', () => {
@@ -632,6 +900,28 @@ function createSettingsWindow() {
     if (settingsCapturePath) {
       settingsWindow.show();
       setTimeout(async () => {
+        if (settingsScrollArgument === 'submission' || settingsScrollArgument === 'submission-device-code') {
+          await settingsWindow.webContents.executeJavaScript(`(() => {
+            const select = document.querySelector('#submission-pet');
+            const option = [...select.options].find((candidate) => candidate.value);
+            if (!option) return false;
+            select.value = option.value;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            document.querySelector('#submit-marketplace-pet').click();
+            return true;
+          })()`);
+          if (settingsScrollArgument === 'submission-device-code') {
+            await new Promise((resolve) => setTimeout(resolve, 700));
+            await settingsWindow.webContents.executeJavaScript(`(() => {
+              marketplaceSubmissionOperation = 'connecting';
+              setMarketplaceGithubDeviceCode('ABCD-EFGH');
+              setMarketplaceSubmissionProgress(c().submissionStage('github-device-code-copied'));
+              renderMarketplaceSubmissionStatus();
+            })()`);
+          }
+          setTimeout(() => void captureAndQuit(settingsWindow, settingsCapturePath), 1_000);
+          return;
+        }
         const scroll = Math.max(0, Math.min(10_000, Number(settingsScrollArgument) || 0));
         if (scroll > 0) await settingsWindow.webContents.executeJavaScript(`window.scrollTo(0, ${scroll})`);
         setTimeout(() => void captureAndQuit(settingsWindow, settingsCapturePath), 120);
@@ -867,6 +1157,68 @@ function registerIpc() {
     requireWindowSender(event, settingsWindow, 'settings');
     return refreshAvatarLibrary();
   });
+  ipcMain.handle('avatars:open-feedback', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return openFeedback();
+  });
+  ipcMain.handle('avatars:get-marketplace', (event, options) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return loadMarketplace(Boolean(options?.force));
+  });
+  ipcMain.handle('avatars:get-marketplace-thumbnail', (event, slug) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    if (!marketplaceClient) throw new Error('The marketplace is not ready yet.');
+    return marketplaceClient.thumbnail(slug, { signal: AbortSignal.timeout(12_000) });
+  });
+  ipcMain.handle('avatars:install-marketplace-pet', (event, slug) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return installMarketplacePet(slug);
+  });
+  ipcMain.handle('avatars:open-marketplace', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return shell.openExternal(CATALOG_SITE_URL);
+  });
+  ipcMain.handle('avatars:open-marketplace-pet', async (event, slug) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    const safeSlug = safeCatalogSlug(slug);
+    const record = await marketplaceClient.record(safeSlug, { signal: AbortSignal.timeout(12_000) });
+    return shell.openExternal(record.detailsUrl);
+  });
+  ipcMain.handle('avatars:report-marketplace-pet', (event, slug, payload) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return openMarketplacePetReport(slug, payload);
+  });
+  ipcMain.handle('avatars:open-submission-guide', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return shell.openExternal(CATALOG_GUIDE_URL);
+  });
+  ipcMain.handle('avatars:get-marketplace-submission-status', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return marketplaceSubmissionStatus();
+  });
+  ipcMain.handle('avatars:connect-marketplace-github', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return connectMarketplaceGithub();
+  });
+  ipcMain.handle('avatars:open-marketplace-github-authorization', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return shell.openExternal(GITHUB_DEVICE_AUTHORIZATION_URL);
+  });
+  ipcMain.handle('avatars:copy-marketplace-github-device-code', (event, value) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    const code = normalizeGitHubDeviceCode(value);
+    if (!code) throw new Error('GitHub returned an invalid one-time code.');
+    clipboard.writeText(code);
+    return { copied: true };
+  });
+  ipcMain.handle('avatars:cancel-marketplace-github', (event) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return cancelMarketplaceGithubConnection();
+  });
+  ipcMain.handle('avatars:submit-marketplace-pet', (event, payload) => {
+    requireWindowSender(event, settingsWindow, 'settings');
+    return submitMarketplacePetDirectly(payload);
+  });
   ipcMain.handle('avatars:overlay-hit-test', (event, value) => {
     requireWindowSender(event, overlayWindow, 'overlay');
     overlayHitTest = Boolean(value);
@@ -964,6 +1316,25 @@ async function startApplication() {
   app.setAppUserModelId('dev.codexavatars.desktop');
   settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'settings.json'));
   settings = await settingsStore.load();
+  marketplaceClient = new MarketplaceClient({
+    cacheDirectory: path.join(app.getPath('userData'), 'marketplace-cache'),
+    renderThumbnail: (spritesheet) => {
+      const atlas = nativeImage.createFromBuffer(spritesheet);
+      const size = atlas.getSize();
+      if (atlas.isEmpty() || size.width !== 1536 || size.height !== 2288) {
+        throw new Error('The marketplace thumbnail source is not a native V2 atlas.');
+      }
+      return atlas
+        .crop({ x: 0, y: 0, width: 192, height: 208 })
+        .resize({ width: 384, height: 416, quality: 'best' })
+        .toPNG();
+    },
+  });
+  githubCli = new GitHubCli({
+    toolDirectory: path.join(app.getPath('userData'), 'tools', 'github-cli'),
+    configDirectory: path.join(app.getPath('userData'), 'github-cli-config'),
+  });
+  githubPublisher = new GitHubMarketplacePublisher({ github: githubCli });
   metadataResolver = new AgentMetadataResolver(path.join(codexHomePath(), 'sessions'));
   threadTitleMonitor = new ThreadTitleMonitor(metadataResolver.threadIndexPath, {
     getThreadIds: activeThreadIds,
@@ -989,7 +1360,7 @@ async function startApplication() {
   registerIpc();
   await refreshAvatarLibrary();
   await eventServer.listen();
-  void hydrateRecentAgents();
+  await hydrateRecentAgents();
   createTray();
   createOverlayWindow();
   createSettingsWindow();
@@ -1019,6 +1390,7 @@ async function startApplication() {
   cleanupTimer = setInterval(() => {
     if (store.cleanup()) broadcastState();
   }, 1_000);
+  agentActivityTimer = setInterval(() => void hydrateRecentAgents(), 1_500);
   avatarRefreshTimer = setInterval(() => void refreshAvatarLibrary(), 5_000);
 }
 
@@ -1051,6 +1423,7 @@ app.on('before-quit', () => {
 });
 app.on('will-quit', () => {
   if (cleanupTimer) clearInterval(cleanupTimer);
+  if (agentActivityTimer) clearInterval(agentActivityTimer);
   if (avatarRefreshTimer) clearInterval(avatarRefreshTimer);
   if (threadTitleMonitor) threadTitleMonitor.close();
   for (const timer of demoTimers) clearTimeout(timer);

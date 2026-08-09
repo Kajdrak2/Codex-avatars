@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: codex-avatar:; connect-src 'none'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: file: codex-avatar:; connect-src 'none'">
     <title>Codex Avatars</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
@@ -25,6 +25,7 @@
           </select>
         </label>
         <button id="tour-button" class="quiet-button compact-button" type="button"></button>
+        <button id="feedback-button" class="quiet-button compact-button feedback-button" type="button"></button>
         <span id="active-count" class="status-pill"></span>
         <span id="version" class="version"></span>
       </div>
@@ -180,13 +181,60 @@
             <h2 id="gallery-title"></h2>
             <p id="gallery-copy"></p>
           </div>
+          <span class="format-badge">V2 · Community</span>
+        </div>
+
+        <div class="marketplace-toolbar">
+          <label class="marketplace-search">
+            <span class="sr-only" id="marketplace-search-label"></span>
+            <input id="marketplace-search" type="search" maxlength="120" autocomplete="off">
+          </label>
+          <label class="marketplace-category">
+            <span class="sr-only" id="marketplace-category-label"></span>
+            <select id="marketplace-category"></select>
+          </label>
+          <button id="refresh-marketplace" class="quiet-button" type="button"></button>
+        </div>
+        <div id="marketplace-status" class="marketplace-status" role="status" aria-live="polite"></div>
+        <div id="marketplace-grid" class="marketplace-grid"></div>
+        <div id="marketplace-empty" class="empty-library" hidden>
+          <strong id="marketplace-empty-title"></strong>
+          <span id="marketplace-empty-copy"></span>
+        </div>
+        <div class="marketplace-credit">
+          <span id="marketplace-credit"></span>
+          <button id="open-marketplace" class="text-button" type="button"></button>
+        </div>
+
+        <div class="panel-divider"></div>
+        <div class="gallery-subheading">
+          <div>
+            <strong id="local-packages-title"></strong>
+            <span id="local-packages-copy"></span>
+          </div>
           <span class="format-badge">.codexpet</span>
         </div>
-        <div class="gallery-actions">
+        <div class="gallery-actions local-package-actions">
           <button id="import-pet" class="primary-button" type="button"></button>
           <button id="open-pet-folder" class="quiet-button" type="button"></button>
         </div>
         <p id="gallery-help" class="fine-print"></p>
+
+        <div class="submission-callout">
+          <div class="submission-copy">
+            <strong id="submission-title"></strong>
+            <span id="submission-copy"></span>
+          </div>
+          <div class="submission-actions">
+            <label class="submission-pet-select">
+              <span class="sr-only" id="submission-pet-label"></span>
+              <select id="submission-pet"></select>
+            </label>
+            <button id="submit-marketplace-pet" class="primary-button" type="button"></button>
+            <button id="open-submission-guide" class="quiet-button" type="button"></button>
+          </div>
+          <small id="submission-note"></small>
+        </div>
       </section>
 
       <section class="panel zone-panel">
@@ -236,6 +284,156 @@
         </div>
       </section>
     </main>
+
+    <dialog id="marketplace-submission-dialog" class="marketplace-submission-dialog">
+      <form id="marketplace-submission-form" class="marketplace-submission-shell">
+        <header class="marketplace-submission-header">
+          <div>
+            <span class="eyebrow" id="submission-dialog-eyebrow"></span>
+            <h2 id="submission-dialog-title"></h2>
+            <p id="submission-dialog-copy"></p>
+          </div>
+          <button id="submission-dialog-close" class="dialog-close" type="button" aria-label="Close">×</button>
+        </header>
+
+        <div class="marketplace-submission-layout">
+          <aside class="submission-review-panel">
+            <div class="submission-atlas-frame">
+              <img id="submission-atlas-preview" alt="">
+            </div>
+            <strong id="submission-preview-name"></strong>
+            <span id="submission-preview-contract"></span>
+            <p id="submission-preview-help"></p>
+          </aside>
+
+          <div class="submission-form-panel">
+            <section class="github-connection-card">
+              <div>
+                <strong id="submission-github-title"></strong>
+                <span id="submission-github-status" role="status" aria-live="polite"></span>
+              </div>
+              <button id="connect-marketplace-github" class="quiet-button" type="button"></button>
+            </section>
+            <section id="github-device-code-panel" class="github-device-code-panel" aria-live="assertive" hidden>
+              <div class="github-device-code-copy">
+                <span id="github-device-code-label"></span>
+                <output id="github-device-code"></output>
+                <small id="github-device-code-help"></small>
+              </div>
+              <div class="github-device-code-actions">
+                <button id="copy-github-device-code" class="quiet-button" type="button"></button>
+                <button id="open-github-device-page" class="primary-button" type="button"></button>
+              </div>
+            </section>
+            <p id="submission-github-required" class="github-required-note"></p>
+
+            <div class="submission-fields">
+              <label>
+                <span id="submission-name-label"></span>
+                <input name="name" maxlength="120" required autocomplete="off">
+              </label>
+              <label>
+                <span id="submission-slug-label"></span>
+                <input name="petSlug" maxlength="48" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" autocomplete="off">
+              </label>
+              <label>
+                <span id="submission-author-label"></span>
+                <input name="author" maxlength="120" required autocomplete="off">
+              </label>
+              <label>
+                <span id="submission-category-label"></span>
+                <select name="primaryCategory" required></select>
+              </label>
+              <label>
+                <span id="submission-source-type-label"></span>
+                <select name="sourceType" required></select>
+              </label>
+              <label class="wide-field">
+                <span id="submission-canonical-label"></span>
+                <input name="canonicalKey" maxlength="180" required autocomplete="off">
+                <small id="submission-canonical-help"></small>
+              </label>
+              <label class="wide-field">
+                <span id="submission-description-label"></span>
+                <textarea name="description" rows="2" maxlength="1000" required></textarea>
+              </label>
+              <label id="submission-source-notes-field" class="wide-field" hidden>
+                <span id="submission-source-notes-label"></span>
+                <textarea name="sourceNotes" rows="3" maxlength="2000"></textarea>
+                <small id="submission-source-notes-help"></small>
+              </label>
+              <label>
+                <span id="submission-source-url-label"></span>
+                <input name="sourceUrl" type="url" maxlength="2000" autocomplete="url">
+              </label>
+              <label>
+                <span id="submission-tags-label"></span>
+                <input name="tags" maxlength="500" autocomplete="off">
+              </label>
+              <label class="wide-field">
+                <span id="submission-variant-label"></span>
+                <textarea name="variantNote" rows="2" maxlength="1000"></textarea>
+                <small id="submission-variant-help"></small>
+              </label>
+              <label class="wide-field">
+                <span id="submission-license-label"></span>
+                <textarea name="license" rows="2" maxlength="2000" required></textarea>
+              </label>
+            </div>
+
+            <fieldset class="submission-confirmations">
+              <legend id="submission-confirmations-title"></legend>
+              <label><input name="rights" type="checkbox" required><span id="submission-confirm-rights"></span></label>
+              <label><input name="frames" type="checkbox" required><span id="submission-confirm-frames"></span></label>
+              <label><input name="directions" type="checkbox" required><span id="submission-confirm-directions"></span></label>
+              <label><input name="edges" type="checkbox" required><span id="submission-confirm-edges"></span></label>
+              <label><input name="nonCommercial" type="checkbox" required><span id="submission-confirm-noncommercial"></span></label>
+              <label><input name="publicPullRequest" type="checkbox" required><span id="submission-confirm-public"></span></label>
+            </fieldset>
+          </div>
+        </div>
+
+        <div id="marketplace-submission-progress" class="marketplace-submission-progress" role="status" aria-live="polite"></div>
+        <footer class="marketplace-submission-footer">
+          <button id="submission-dialog-cancel" class="quiet-button" type="button"></button>
+          <button id="confirm-marketplace-submission" class="primary-button" type="submit"></button>
+        </footer>
+      </form>
+    </dialog>
+
+    <dialog id="marketplace-report-dialog" class="marketplace-report-dialog">
+      <form id="marketplace-report-form" class="marketplace-report-shell">
+        <header class="marketplace-submission-header">
+          <div>
+            <span class="eyebrow" id="report-dialog-eyebrow"></span>
+            <h2 id="report-dialog-title"></h2>
+            <p id="report-dialog-copy"></p>
+          </div>
+          <button id="report-dialog-close" class="dialog-close" type="button" aria-label="Close">×</button>
+        </header>
+
+        <div class="marketplace-report-body">
+          <div class="marketplace-report-target">
+            <strong id="report-pet-name"></strong>
+            <span id="report-pet-slug"></span>
+          </div>
+          <label>
+            <span id="report-reason-label"></span>
+            <select name="reason" required></select>
+          </label>
+          <label>
+            <span id="report-details-label"></span>
+            <textarea name="details" rows="6" minlength="10" maxlength="2000" required></textarea>
+          </label>
+          <p id="report-public-note" class="marketplace-report-note"></p>
+        </div>
+
+        <footer class="marketplace-submission-footer">
+          <button id="report-dialog-cancel" class="quiet-button" type="button"></button>
+          <button id="confirm-marketplace-report" class="primary-button" type="submit"></button>
+        </footer>
+      </form>
+    </dialog>
 
     <dialog id="onboarding-dialog" class="onboarding-dialog">
       <div class="onboarding-shell">

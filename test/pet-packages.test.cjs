@@ -7,7 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const AdmZip = require('adm-zip');
 const { readAvatarPackage } = require('../src/core/avatar-library.cjs');
-const { exportPetPackage, importPetPackage, readArchiveEntries } = require('../src/core/pet-packages.cjs');
+const { exportPetPackage, importPetPackage, installPetBuffers, readArchiveEntries } = require('../src/core/pet-packages.cjs');
 
 function webpHeader(width = 1536, height = 2288) {
   const data = Buffer.alloc(30);
@@ -63,5 +63,22 @@ test('rejects nested and case-duplicate archive entries', async () => {
   duplicate.addFile('PET.JSON', Buffer.from('{}'));
   duplicate.writeZip(duplicatePath);
   assert.throws(() => readArchiveEntries(duplicatePath), /Duplicate archive entry/);
+  await fs.rm(root, { recursive: true, force: true });
+});
+
+test('installs verified buffers atomically and rejects a marketplace id collision', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-avatar-buffer-install-'));
+  const pets = path.join(root, 'pets');
+  const manifest = Buffer.from(JSON.stringify({
+    id: 'market-fox', displayName: 'Market Fox', spriteVersionNumber: 2, spritesheetPath: 'spritesheet.webp',
+  }));
+  const first = await installPetBuffers(manifest, webpHeader(), pets, { requestedId: 'market-fox', collision: 'reject' });
+  assert.equal(first.id, 'market-fox');
+  assert.equal((await fs.stat(path.join(first.directory, 'spritesheet.webp'))).isFile(), true);
+  await assert.rejects(
+    installPetBuffers(manifest, webpHeader(), pets, { requestedId: 'market-fox', collision: 'reject' }),
+    (error) => error.code === 'PET_ID_CONFLICT',
+  );
+  assert.deepEqual((await fs.readdir(pets)).filter((name) => name.startsWith('.codex-avatars-import-')), []);
   await fs.rm(root, { recursive: true, force: true });
 });

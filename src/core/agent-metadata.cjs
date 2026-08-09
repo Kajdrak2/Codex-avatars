@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const fsp = require('node:fs/promises');
 const path = require('node:path');
 const readline = require('node:readline');
+const { projectNameFromCwd } = require('./event-normalizer.cjs');
 
 const SAFE_ID = /^[a-zA-Z0-9][a-zA-Z0-9_-]{2,127}$/;
 const UPPERCASE_WORDS = new Set(['ai', 'api', 'cli', 'css', 'html', 'qa', 'ui', 'ux']);
@@ -139,12 +140,153 @@ async function findRecentRolloutFiles(directory, cutoff, depth = 0, files = []) 
     if (!entry.isFile() || !entry.name.endsWith('.jsonl')) continue;
     try {
       const stats = await fsp.stat(entryPath);
-      if (stats.mtimeMs >= cutoff) files.push({ path: entryPath, modifiedAt: stats.mtimeMs });
+      if (stats.mtimeMs >= cutoff) files.push({
+        path: entryPath,
+        modifiedAt: stats.mtimeMs,
+        size: stats.size,
+      });
     } catch {
       // A rollout can be replaced while Codex rotates local session files.
     }
   }
   return files;
+}
+
+function rolloutActivityFromRecords(records, fallbackTimestamp = Date.now()) {
+  let activity = null;
+  let activityAt = null;
+
+  const setActivity = (next, timestamp) => {
+    activity = next;
+    const parsed = Date.parse(timestamp || '');
+    activityAt = Number.isFinite(parsed) ? parsed : fallbackTimestamp;
+  };
+
+  for (const record of records || []) {
+    if (!record || typeof record !== 'object') continue;
+    const payload = record.payload || {};
+
+    if (record.type === 'session_meta' || record.type === 'turn_context') {
+      setActivity('working', record.timestamp);
+      continue;
+    }
+
+    if (record.type === 'event_msg') {
+      if (payload.type === 'user_message') {
+        setActivity('working', record.timestamp);
+      } else if (payload.type === 'agent_message') {
+        setActivity(payload.phase === 'final_answer' ? 'idle' : 'working', record.timestamp);
+      } else if (['turn_aborted', 'task_complete', 'task_failed'].includes(payload.type)) {
+        setActivity('idle', record.timestamp);
+      } else if (['agent_reasoning', 'patch_apply_begin', 'patch_apply_end', 'web_search_begin', 'web_search_end'].includes(payload.type)) {
+        setActivity('working', record.timestamp);
+      }
+      continue;
+    }
+
+    if (record.type !== 'response_item') continue;
+    if (payload.type === 'message') {
+      setActivity(payload.phase === 'final_answer' ? 'idle' : 'working', record.timestamp);
+    } else if (['reasoning', 'custom_tool_call', 'custom_tool_call_output'].includes(payload.type)) {
+      setActivity('working', record.timestamp);
+    }
+  }
+
+  return { activity, activityAt };
+}
+
+async function readFirstSessionMeta(filePath) {
+  const input = fs.createReadStream(filePath, { encoding: 'utf8' });
+  const reader = readline.createInterface({ input, crlfDelay: Infinity });
+  try {
+    for await (const line of reader) {
+      try {
+        const record = JSON.parse(line);
+        if (record.type === 'session_meta') return record.payload || null;
+      } catch {
+        // The first line can be observed while Codex is creating the rollout.
+      }
+    }
+  } finally {
+    reader.close();
+    input.destroy();
+  }
+  return null;
+}
+
+async function readTailRecords(filePath, size, maxBytes = 1024 * 1024) {
+  const length = Math.min(Math.max(0, size), maxBytes);
+  if (length === 0) return [];
+  const start = Math.max(0, size - length);
+  const handle = await fsp.open(filePath, 'r');
+  try {
+    const buffer = Buffer.allocUnsafe(length);
+    const { bytesRead } = await handle.read(buffer, 0, length, start);
+    let text = buffer.subarray(0, bytesRead).toString('utf8');
+    if (start > 0) {
+      const newline = text.indexOf('\n');
+      if (newline < 0) return [];
+      text = text.slice(newline + 1);
+    }
+    const records = [];
+    for (const line of text.split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      try {
+        records.push(JSON.parse(line));
+      } catch {
+        // Ignore a partial first or final line while Codex is appending.
+      }
+    }
+    return records;
+  } finally {
+    await handle.close();
+  }
+}
+
+async function readRecentAgentActivityRecords(sessionsRoot, options = {}) {
+  const maxAgeMs = options.maxAgeMs ?? 30 * 60_000;
+  const maxRecords = options.maxRecords ?? 128;
+  const tailBytes = options.tailBytes ?? 1024 * 1024;
+  const cache = options.cache instanceof Map ? options.cache : null;
+  const changedOnly = Boolean(options.changedOnly && cache);
+  const files = await findRecentRolloutFiles(sessionsRoot, Date.now() - maxAgeMs);
+  const records = [];
+
+  for (const file of files.sort((left, right) => right.modifiedAt - left.modifiedAt).slice(0, maxRecords)) {
+    const fingerprint = `${file.size}:${file.modifiedAt}`;
+    const cached = cache?.get(file.path);
+    if (cached?.fingerprint === fingerprint) {
+      if (!changedOnly && cached.record) records.push({ ...cached.record });
+      continue;
+    }
+
+    const sessionMeta = await readFirstSessionMeta(file.path);
+    const spawn = sessionMeta?.source?.subagent?.thread_spawn || null;
+    const sessionId = sessionMeta?.session_id || spawn?.parent_thread_id || null;
+    const agentId = sessionMeta?.id || null;
+    if (!SAFE_ID.test(String(sessionId || '')) || !SAFE_ID.test(String(agentId || ''))) continue;
+
+    const tail = await readTailRecords(file.path, file.size, tailBytes);
+    const latestTurnContext = [...tail].reverse().find((record) => record?.type === 'turn_context')?.payload || null;
+    const metadata = metadataFromRecords(sessionMeta, latestTurnContext) || {};
+    const state = rolloutActivityFromRecords(tail, file.modifiedAt);
+    const record = {
+      filePath: file.path,
+      sessionId,
+      agentId,
+      isRoot: !spawn,
+      project: projectNameFromCwd(sessionMeta?.cwd),
+      modifiedAt: file.modifiedAt,
+      size: file.size,
+      activity: state.activity || 'working',
+      activityAt: state.activityAt || file.modifiedAt,
+      metadata,
+    };
+    cache?.set(file.path, { fingerprint, record });
+    records.push(record);
+  }
+
+  return records;
 }
 
 async function readRecentAgentRecords(sessionsRoot, options = {}) {
@@ -322,6 +464,7 @@ module.exports = {
   AgentMetadataResolver,
   ThreadTitleMonitor,
   findRolloutFile,
+  readRecentAgentActivityRecords,
   readRecentAgentRecords,
   metadataFromRecords,
   readMetadataFile,
@@ -329,4 +472,5 @@ module.exports = {
   readThreadNames,
   safeThreadName,
   taskLabelFromPath,
+  rolloutActivityFromRecords,
 };

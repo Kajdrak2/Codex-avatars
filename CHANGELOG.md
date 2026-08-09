@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Merged the controlled `Kajdrak2/awesome-codex-pet` fork with the original Awesome Codex Pet catalog. The fork wins matching ids and exact spritesheet hashes, while genuinely different variants and original-only Pets remain available.
+- Added a visible **Bug report / Suggestion** button. It offers a localized native choice, then opens a fixed project GitHub URL with a structured draft and the running app version already filled in; repository visitors also receive guided issue forms.
+- Integrated the open Awesome Codex Pet catalog as a searchable, category-filtered V2 marketplace with cached previews and one-button local installation.
+- Added an in-app V2 Pet submission form with full-atlas review, provenance and license fields, fresh duplicate checks, official GitHub browser authentication, and one consent-gated ready-for-review pull request—without opening Codex or spending Codex credits.
+- Fixed first-time GitHub authentication by advancing the browser flow, copying the device code through GitHub CLI, reusing an existing CLI session when available, and making connection attempts cancellable.
+- The submission dialog remains dismissible during GitHub connection, defaults the author to the connected GitHub login, and generates an editable canonical key from category, author, and Pet id.
+- Added a localized **Report** action to every marketplace Pet. It collects a fixed reason and bounded explanation, then opens a prefilled public GitHub issue with verified catalog metadata for the user to review and submit.
+
+### Changed
+
+- Focused Pet submissions now publish automatically after the protected catalog checks pass for the exact pull-request commit; draft, failed, stale, or unrelated revisions remain unmerged.
+
+### Fixed
+
+- Marketplace entries without a generated public preview now fall back to their integrity-checked V2 WebP atlas, cropped to one frame directly by Chromium instead of relying on Electron's unavailable Windows WebP decoder.
+- Direct Pet submissions now generate Prettier-compatible catalog JSON, so a valid Pet no longer fails CI only because a short tags array was expanded across multiple lines.
+- Repeating a submission updates the newest matching open pull request instead of creating another public branch and duplicate pull request.
+- Direct in-app Pet submissions now target the controlled catalog fork. Its owner can publish the submission branch directly; other contributors stay compatible through any fork in the original GitHub repository network.
+- Catalog sources are fetched and cached independently, so one unavailable repository no longer hides the other source. V1 single-source caches migrate safely to the new merged cache.
+- GitHub device authentication now shows the one-time code in a prominent in-app panel with dedicated **Copy code** and **Open GitHub** actions; the browser action cannot be used before a code exists.
+- Continuously reconciles active root tasks and subagents from their local rollout state, so concurrent projects missed by a resume hook appear within about two seconds without reviving completed tasks.
+- GitHub browser authentication now waits for the one-time device code before advancing the CLI prompt, opens the device page from the app, keeps a manual **Open GitHub** action available, and checks existing sessions in parallel.
+- The submission author is filled from the connected GitHub login and remembered locally; the canonical key is generated immediately even before the first connection, with the author added for original characters.
+- Removed the redundant always-required provenance textarea. Original and independently generated Pets receive accurate source notes automatically; reuse and attribution details appear only for source types that need them.
+
+### Security
+
+- Marketplace Pet assets can only resolve to the two fixed catalog repositories, and source-specific details links are resolved from the validated catalog record instead of being constructed by the renderer.
+- Marketplace downloads are restricted to the expected repository and paths, size-limited, checked against the catalog SHA-256 and byte counts, validated as native `1536x2288` V2 atlases, and installed atomically without overwriting a conflicting local Pet.
+- The renderer retains its no-network CSP; catalog, thumbnail, and Pet downloads run only in the sandboxed application bridge and cached data is schema-validated before use.
+- A missing GitHub CLI is fetched only from an official pinned release and must match hard-coded archive and executable SHA-256 values. GitHub tokens remain owned by the CLI credential flow, ambient token variables are stripped, API routes are fixed, and no public branch or pull request is created before a native confirmation.
+- Pet reports reconstruct their source from an allowlisted catalog record, accept only fixed reasons and bounded text, and open a fixed public GitHub issue URL without background submission.
+
 ## [0.6.7] - 2026-08-08
 
 ### Fixed

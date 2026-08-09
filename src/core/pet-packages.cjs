@@ -38,6 +38,19 @@ async function availableDestination(petRoot, requestedId) {
   throw new Error('Could not allocate a destination for this Pet.');
 }
 
+async function strictDestination(petRoot, requestedId) {
+  const destinationPath = path.join(petRoot, requestedId);
+  try {
+    await fs.access(destinationPath);
+    const error = new Error(`A local Pet already uses the id ${requestedId}.`);
+    error.code = 'PET_ID_CONFLICT';
+    throw error;
+  } catch (error) {
+    if (error.code === 'ENOENT') return { id: requestedId, path: destinationPath };
+    throw error;
+  }
+}
+
 function readArchiveEntries(archivePath) {
   const archive = new AdmZip(archivePath);
   const files = new Map();
@@ -65,26 +78,44 @@ async function importPetPackage(archivePath, petRoot) {
     throw new Error('A Pet package must contain pet.json and spritesheet.webp.');
   }
 
+  const extraFiles = new Map();
+  for (const [name, outputName] of [['readme.md', 'README.md'], ['license.md', 'LICENSE.md'], ['license', 'LICENSE']]) {
+    if (files.has(name)) extraFiles.set(outputName, files.get(name));
+  }
+  return installPetBuffers(files.get('pet.json'), files.get('spritesheet.webp'), petRoot, { extraFiles });
+}
+
+async function installPetBuffers(manifestBuffer, spritesheetBuffer, petRoot, options = {}) {
+  const manifestBytes = Buffer.isBuffer(manifestBuffer) ? manifestBuffer : Buffer.from(manifestBuffer || '');
+  const spritesheetBytes = Buffer.isBuffer(spritesheetBuffer) ? spritesheetBuffer : Buffer.from(spritesheetBuffer || '');
   let manifest;
   try {
-    manifest = JSON.parse(files.get('pet.json').toString('utf8'));
+    manifest = JSON.parse(manifestBytes.toString('utf8'));
   } catch {
     throw new Error('The Pet manifest is not valid JSON.');
   }
   const requestedId = safePackageId(manifest.id);
+  if (options.requestedId && safePackageId(options.requestedId) !== requestedId) {
+    throw new Error('The Pet manifest id does not match the requested destination.');
+  }
   if (Number(manifest.spriteVersionNumber) !== 2) throw new Error('Only Codex Pet v2 packages can be imported.');
+  if (spritesheetBytes.length > MAX_UNCOMPRESSED_BYTES) throw new Error('The Pet spritesheet is too large.');
 
   await fs.mkdir(petRoot, { recursive: true });
+  const destination = options.collision === 'reject'
+    ? await strictDestination(petRoot, requestedId)
+    : await availableDestination(petRoot, requestedId);
   const stagingPath = path.join(petRoot, `.codex-avatars-import-${randomUUID()}`);
   let committed = false;
   try {
     await fs.mkdir(stagingPath);
-    const destination = await availableDestination(petRoot, requestedId);
     manifest = { ...manifest, id: destination.id, spritesheetPath: 'spritesheet.webp', spriteVersionNumber: 2 };
     await fs.writeFile(path.join(stagingPath, 'pet.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
-    await fs.writeFile(path.join(stagingPath, 'spritesheet.webp'), files.get('spritesheet.webp'));
-    for (const [name, outputName] of [['readme.md', 'README.md'], ['license.md', 'LICENSE.md'], ['license', 'LICENSE']]) {
-      if (files.has(name)) await fs.writeFile(path.join(stagingPath, outputName), files.get(name));
+    await fs.writeFile(path.join(stagingPath, 'spritesheet.webp'), spritesheetBytes);
+    const extraFiles = options.extraFiles instanceof Map ? options.extraFiles : new Map();
+    for (const [name, contents] of extraFiles) {
+      if (!['README.md', 'LICENSE.md', 'LICENSE'].includes(name)) continue;
+      await fs.writeFile(path.join(stagingPath, name), contents);
     }
 
     const record = await readAvatarPackage(stagingPath, 'codex-pet');
@@ -145,6 +176,7 @@ module.exports = {
   MAX_ARCHIVE_BYTES,
   exportPetPackage,
   importPetPackage,
+  installPetBuffers,
   readArchiveEntries,
   safePackageId,
 };
