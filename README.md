@@ -2,7 +2,7 @@
 
 Codex Avatars gives the main task and every Codex subagent an independent animated companion. Characters use the native Codex Pet v2 format and roam directly across one or more displays, with no dock, colored panel, or visible overlay background.
 
-> Project status: version `0.6.7` is published on GitHub. The current `0.7.0-beta.11` test build adds the external V2 Pet marketplace, automatic publication after protected CI, public in-app Pet reports, direct GitHub submission, continuous multi-task activity reconciliation, a visible GitHub device-code step, reliable previews for fork-only Pets, and guided feedback described below. The installer is not code-signed yet.
+> Project status: version `0.7.0` is published on GitHub. It adds the external V2 Pet marketplace, automatic publication after protected CI, public in-app Pet reports, direct GitHub submission, continuous multi-task activity reconciliation, a visible GitHub device-code step, reliable previews for fork-only Pets, and guided feedback described below. The installer is not code-signed yet.
 
 [Lire en français](README.fr.md)
 

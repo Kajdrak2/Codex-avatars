@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-09
+
 ### Added
 
 - Merged the controlled `Kajdrak2/awesome-codex-pet` fork with the original Awesome Codex Pet catalog. The fork wins matching ids and exact spritesheet hashes, while genuinely different variants and original-only Pets remain available.
