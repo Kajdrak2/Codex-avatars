@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-08-11
+
+### Fixed
+
+- **Start with Windows** no longer reports a false failure when Electron 43 returns an exact active registration while omitting its launch-item details and contradicting its own launchability result.
+- Startup state is verified against the app's two fixed user-level Windows entries, including StartupApproved, and the legacy entry is now removed explicitly before the single canonical registration is restored.
+- Disabling the setting removes both Codex Avatars registrations while leaving unrelated startup commands untouched.
+
 ## [0.7.1] - 2026-08-11
 
 ### Fixed
