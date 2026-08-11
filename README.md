@@ -2,7 +2,7 @@
 
 Codex Avatars gives the main task and every Codex subagent an independent animated companion. Characters use the native Codex Pet v2 format and roam directly across one or more displays, with no dock, colored panel, or visible overlay background.
 
-> Project status: version `0.7.1` is published on GitHub. It fixes the **Start with Windows** control, preserves Windows' enabled or disabled startup state, and automatically consolidates duplicate legacy startup entries. It also includes the external V2 Pet marketplace, automatic publication after protected CI, public in-app Pet reports, direct GitHub submission, continuous multi-task activity reconciliation, reliable previews for fork-only Pets, and guided feedback described below. The installer is not code-signed yet.
+> Project status: version `0.7.2` is published on GitHub. It fixes the **Start with Windows** false failure seen with Electron 43, verifies the actual Windows startup state, and replaces duplicate legacy entries with one canonical registration. It also includes the external V2 Pet marketplace, automatic publication after protected CI, public in-app Pet reports, direct GitHub submission, continuous multi-task activity reconciliation, reliable previews for fork-only Pets, and guided feedback described below. The installer is not code-signed yet.
 
 [Lire en français](README.fr.md)
 
