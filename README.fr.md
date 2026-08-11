@@ -37,13 +37,13 @@ Le dessin sur le bureau est donc assuré par un petit processus Electron local. 
 
 ## Installation simple — recommandée
 
-1. Télécharge [Codex Avatars 0.6.7](https://github.com/Kajdrak2/Codex-avatars/releases/tag/v0.6.7), puis lance `Codex.Avatars-Setup-0.6.7.exe`.
+1. Ouvre la [dernière release de Codex Avatars](https://github.com/Kajdrak2/Codex-avatars/releases/latest), télécharge le fichier Windows `.exe` sous **Assets**, puis lance-le.
 2. Ouvre l’installeur et termine l’assistant.
 3. Dans la page Codex qui s’ouvre, installe **Codex Avatars** et vérifie ses hooks.
 
 L’installeur place le compagnon dans le profil Windows, active immédiatement les hooks locaux, embarque le marketplace et le plugin, enregistre le chemin exact du renderer et ouvre les réglages. La confirmation finale dans Codex reste volontaire : un installeur ne doit pas accepter des hooks de sécurité à la place de l’utilisateur.
 
-La build locale actuelle n’est pas signée. Windows peut donc afficher SmartScreen tant qu’un certificat Authenticode n’est pas configuré pour la publication.
+L’installeur Windows publié n’est pas encore signé ; Microsoft SmartScreen peut donc afficher un avertissement.
 
 Lorsqu’une release GitHub plus récente est disponible, le compagnon propose d’ouvrir sa page au démarrage. La mise à jour reste volontaire : il faut télécharger et lancer l’installeur normal, sans remplacement silencieux de l’exécutable.
 
@@ -52,7 +52,7 @@ Lorsqu’une release GitHub plus récente est disponible, le compagnon propose d
 Prérequis : Windows 10/11, Node.js 22 ou plus récent et une version actuelle de l’application de bureau ChatGPT avec Codex.
 
 ```powershell
-git clone <adresse-du-depot> codex-avatars
+git clone https://github.com/Kajdrak2/Codex-avatars.git codex-avatars
 cd codex-avatars
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```

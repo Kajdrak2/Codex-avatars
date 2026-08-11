@@ -39,13 +39,13 @@ A small local Electron process therefore draws the desktop sprites. The installe
 
 ## Simple installation — recommended
 
-1. Download [Codex Avatars 0.6.7](https://github.com/Kajdrak2/Codex-avatars/releases/tag/v0.6.7) and run `Codex.Avatars-Setup-0.6.7.exe`.
+1. Open the [latest Codex Avatars release](https://github.com/Kajdrak2/Codex-avatars/releases/latest), download the Windows `.exe` under **Assets**, and run it.
 2. Run the installer and finish the wizard.
 3. On the Codex plugin page that opens, install **Codex Avatars** and review its hooks.
 
 The installer places the companion in the Windows user profile, enables the local hooks immediately, bundles the marketplace and plugin, records the exact renderer path, and opens settings. The final Codex confirmation is intentional: an installer must not accept security-sensitive hooks on the user's behalf.
 
-The current local build is unsigned, so Windows may show SmartScreen until Authenticode signing is configured for publication.
+The published Windows installer is not code-signed yet, so Microsoft SmartScreen may show a warning.
 
 When a newer GitHub release is available, the companion offers to open its release page on startup. Updates remain user-mediated: download and run the normal installer rather than allowing a silent executable replacement.
 
@@ -54,7 +54,7 @@ When a newer GitHub release is available, the companion offers to open its relea
 Requirements: Windows 10/11, Node.js 22 or newer, and a current ChatGPT desktop app with Codex.
 
 ```powershell
-git clone <repository-url> codex-avatars
+git clone https://github.com/Kajdrak2/Codex-avatars.git codex-avatars
 cd codex-avatars
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
