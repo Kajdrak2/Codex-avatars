@@ -11,7 +11,7 @@ const translations = {
     paused: 'Avatars disabled', enableAvatars: 'Enable avatars', disableAvatars: 'Disable avatars',
     controlEyebrow: 'Always available', controlTitle: 'Overlay', passiveTitle: 'Passive mode',
     passiveCopy: 'Clicks pass through avatars. Turn it off here, from the tray icon, or with Ctrl + Alt + A.',
-    startupTitle: 'Start with Windows', startupCopy: 'Keeps the invisible companion ready. Codex hooks can also start it on the first event.',
+    startupTitle: 'Start with Windows', startupCopy: 'Keeps the invisible companion ready. Codex hooks can also start it on the first event.', startupError: 'Windows could not apply this startup setting.',
     avatarsEyebrow: 'Local library', avatarsTitle: 'Active avatars',
     avatarsCopy: 'Native Codex Pet v2 packages, independently assigned to main agents and subagents.',
     refresh: 'Refresh', emptyTitle: 'No compatible Pet detected', emptyCopy: 'Create or import a Pet, then refresh this library.',
@@ -132,7 +132,7 @@ const translations = {
     paused: 'Avatars désactivés', enableAvatars: 'Activer les avatars', disableAvatars: 'Désactiver les avatars',
     controlEyebrow: 'Toujours accessible', controlTitle: 'Overlay', passiveTitle: 'Mode passif',
     passiveCopy: 'Les clics traversent les avatars. Désactivez-le ici, depuis l’icône de zone de notification ou avec Ctrl + Alt + A.',
-    startupTitle: 'Démarrer avec Windows', startupCopy: 'Garde le compagnon invisible prêt. Les hooks Codex peuvent aussi le lancer au premier événement.',
+    startupTitle: 'Démarrer avec Windows', startupCopy: 'Garde le compagnon invisible prêt. Les hooks Codex peuvent aussi le lancer au premier événement.', startupError: 'Windows n\u2019a pas pu appliquer ce réglage de démarrage.',
     avatarsEyebrow: 'Bibliothèque locale', avatarsTitle: 'Avatars actifs',
     avatarsCopy: 'Packages Codex Pet v2 natifs, attribués indépendamment aux agents principaux et sous-agents.',
     refresh: 'Actualiser', emptyTitle: 'Aucun Pet compatible détecté', emptyCopy: 'Créez ou importez un Pet, puis actualisez la bibliothèque.',
@@ -1017,7 +1017,20 @@ elements.feedback.addEventListener('click', async () => {
 });
 elements.overlayEnabledButton.addEventListener('click', () => void save({ overlayEnabled: !settings.overlayEnabled }));
 elements.passive.addEventListener('change', () => void save({ passive: elements.passive.checked }));
-elements.startup.addEventListener('change', async () => { elements.startup.checked = await api.setLaunchAtLogin(elements.startup.checked); });
+elements.startup.addEventListener('change', async () => {
+  const requested = elements.startup.checked;
+  elements.startup.disabled = true;
+  try {
+    elements.startup.checked = await api.setLaunchAtLogin(requested);
+    if (elements.startup.checked !== requested) showToast(c().startupError);
+  } catch (error) {
+    console.error(error);
+    elements.startup.checked = !requested;
+    showToast(c().startupError);
+  } finally {
+    elements.startup.disabled = false;
+  }
+});
 function previewAvatarSizes() {
   elements.mainAvatarSizeValue.textContent = `${elements.mainAvatarSize.value}px`;
   elements.subagentAvatarSizeValue.textContent = `${elements.subagentAvatarSize.value}px`;

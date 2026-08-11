@@ -63,6 +63,11 @@ const {
   analyzeCatalogDuplicates,
   prepareLocalSubmission,
 } = require('./core/marketplace-submission.cjs');
+const {
+  getLaunchAtLogin,
+  normalizeLaunchAtLogin,
+  setLaunchAtLogin,
+} = require('./core/login-item.cjs');
 const { mergeSettings, SettingsStore } = require('./core/settings-store.cjs');
 const { checkForUpdate } = require('./core/update-check.cjs');
 const {
@@ -1081,7 +1086,7 @@ async function settingsBootstrapPayload() {
     avatars: publicAvatars(),
     displays: currentDisplays(),
     zone: currentZone(),
-    launchAtLogin: app.getLoginItemSettings().openAtLogin,
+    launchAtLogin: getLaunchAtLogin(app, process.execPath),
     hooks: await hooksStatus(),
     version: app.getVersion(),
     settingsCapture: Boolean(settingsCapturePath) && !onboardingCapture,
@@ -1134,12 +1139,7 @@ function registerIpc() {
   });
   ipcMain.handle('avatars:set-launch-at-login', (event, value) => {
     requireWindowSender(event, settingsWindow, 'settings');
-    app.setLoginItemSettings({
-      openAtLogin: Boolean(value),
-      path: process.execPath,
-      args: ['--background'],
-    });
-    return app.getLoginItemSettings().openAtLogin;
+    return setLaunchAtLogin(app, process.execPath, Boolean(value));
   });
   ipcMain.handle('avatars:install-hooks', (event) => {
     requireWindowSender(event, settingsWindow, 'settings');
@@ -1314,6 +1314,7 @@ function registerIpc() {
 
 async function startApplication() {
   app.setAppUserModelId('dev.codexavatars.desktop');
+  normalizeLaunchAtLogin(app, process.execPath);
   settingsStore = new SettingsStore(path.join(app.getPath('userData'), 'settings.json'));
   settings = await settingsStore.load();
   marketplaceClient = new MarketplaceClient({
