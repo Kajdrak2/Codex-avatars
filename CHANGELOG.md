@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-08-11
+
+### Fixed
+
+- **Start with Windows** now reads the exact executable and `--background` registration it writes, including Windows' enabled or disabled StartupApproved state.
+- Existing duplicate or legacy startup entries are migrated to one canonical entry without changing the user's choice, and the settings toggle reports when Windows rejects a change.
+
 ## [0.7.0] - 2026-08-09
 
 ### Added
